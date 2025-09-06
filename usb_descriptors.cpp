@@ -123,8 +123,8 @@ char const *string_desc_arr[] =
   "SEGA",                        // 1: Manufacturer
   "Duel led board Device",       // 2: Product
   NULL,                          // 3: Serials will use unique ID if possible
-  "LED CDC 0",                   // 4: CDC 0 Interface
-  "LED CDC 1",                   // 5: CDC 1 Interface
+  "LED board 0",                 // 4: CDC 0 Interface
+  "LED board 1",                 // 5: CDC 1 Interface
 };
 
 static uint16_t _desc_str[32 + 1];
