@@ -29,6 +29,16 @@ static uint32_t expected_length_2 = 0;
 static std::string chip_num = "6710";
 static std::string board_name = "15093-06";
 
+void log_response(jvs_resp_any *resp)
+{
+	printf("Response length: %d\nPayload: ", resp->len);
+	for (int i = 0; i < resp->len; i++)
+	{
+		printf("%02X ", resp->payload[i]);
+	}
+	printf("\n");
+}
+
 bool is_all_zero(const void *buf, size_t len)
 {
 	return memchr(buf, 1, len) == NULL;
@@ -42,15 +52,26 @@ void led_get_board_info(jvs_req_any *req, jvs_resp_any *resp)
 	*(resp->payload + 8) = 0x0A;
 	strcpy(reinterpret_cast<char *>(resp->payload) + 9, chip_num.c_str());
 	*(resp->payload + 14) = 0xFF;
-	*(resp->payload + 15) = 0x90;
+
+	if (req->dest == 0x01 && req->src == 0x02) {
+		*(resp->payload + 15) = 0xa0;
+	} else {
+		*(resp->payload + 15) = 0x90;
+	}
 	*(resp->payload + 16) = 0;
 	*(resp->payload + 17) = 204;
 }
 void led_get_firm_sum(jvs_req_any *req, jvs_resp_any *resp)
 {
 	resp->len += 2;
-	*(resp->payload) = 0xADF7 >> 8;
-	*(resp->payload + 1) = (uint8_t)0xADF7;
+
+	if (req->dest == 0x01 && req->src == 0x02) {
+		*(resp->payload) = (0xAA53 >> 8) & 0xff;
+		*(resp->payload + 1) = (uint8_t)0xAA53 & 0xff;
+	} else {
+		*(resp->payload) = (0xADF7 >> 8) & 0xff;
+		*(resp->payload + 1) = (uint8_t)0xADF7 & 0xff;
+	}
 }
 
 void led_get_protocol_ver(jvs_req_any *req, jvs_resp_any *resp)
@@ -86,7 +107,12 @@ void led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
 }
 
-void led_set_fade(jvs_req_any *req, jvs_resp_any *resp, int led_board) {
+void led_set_fade(jvs_req_any *req, jvs_resp_any *resp, int led_board)
+{
+}
+
+void led_set_fade_pattern(jvs_req_any *req, jvs_resp_any *resp, int led_board)
+{
 }
 
 void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
@@ -274,14 +300,14 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 		if (tud_cdc_n_available(0))
 		{
 			uint32_t count = tud_cdc_n_read(0, jvs_buf_1 + offset_1, MAX_PACKET - offset_1);
-			
+
 			offset_1 += count;
 
 			HRESULT result = 1;
 			jvs_req_any req = {0};
 			jvs_resp_any resp = {0};
 
-			uint8_t out_buffer[MAX_PACKET];
+			uint8_t out_buffer[MAX_PACKET] = {0};
 			uint32_t out_len = 255;
 
 			if (offset_1 >= 4 && expected_length_1 == 0)
@@ -330,6 +356,8 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 				resp.status = 1;
 				resp.report = 1;
 
+				printf("LED 1 CMD: 0x%02X \n", req.cmd);
+
 				switch (req.cmd)
 				{
 				case LED_CMD_GET_BOARD_INFO:
@@ -366,6 +394,11 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 				case LED_CMD_SET_LED_FADE:
 					led_set_fade(&req, &resp, 0);
 					break;
+
+				case LED_CMD_SET_LED_FADE_PATTERN: 
+					led_set_fade_pattern(&req, &resp, 0);
+					break;
+
 				default:
 					printf("Unknown command: 0x%02X\n", req.cmd);
 					break;
@@ -379,8 +412,15 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 			if (SUCCEEDED(result))
 			{
-				if (!setting_disable_resp_1 || req.cmd == LED_CMD_DISABLE_RESPONSE)
+				if (!setting_disable_resp_1 || req.cmd == LED_CMD_DISABLE_RESPONSE || req.cmd == LED_CMD_GET_BOARD_INFO
+				 || req.cmd == LED_CMD_GET_FIRM_SUM|| req.cmd == LED_CMD_GET_PROTOCOL_VER)
 				{
+					printf("Response length 1: %d\nPayload: ", out_len);
+					for (int i = 0; i < out_len; i++)
+					{
+						printf("%02X ", out_buffer[i]);
+					}
+					printf("\n");
 					tud_cdc_n_write(0, out_buffer, out_len);
 					tud_cdc_n_write_flush(0);
 				}
@@ -417,7 +457,7 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 			jvs_req_any req = {0};
 			jvs_resp_any resp = {0};
 
-			uint8_t out_buffer[MAX_PACKET];
+			uint8_t out_buffer[MAX_PACKET] = {0};
 			uint32_t out_len = 255;
 
 			if (offset_2 >= 4 && expected_length_2 == 0)
@@ -466,6 +506,8 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 				resp.status = 1;
 				resp.report = 1;
 
+				printf("LED 2 CMD: 0x%02X \n", req.cmd);
+
 				switch (req.cmd)
 				{
 				case LED_CMD_GET_BOARD_INFO:
@@ -502,7 +544,12 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 				case LED_CMD_SET_LED_FADE:
 					led_set_fade(&req, &resp, 1);
 					break;
+
+				case LED_CMD_SET_LED_FADE_PATTERN: 
+					led_set_fade_pattern(&req, &resp, 0);
+					break;
 					
+
 				default:
 					printf("Unknown command: 0x%02X\n", req.cmd);
 					break;
@@ -516,8 +563,16 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 			if (SUCCEEDED(result))
 			{
-				if (!setting_disable_resp_2 || req.cmd == LED_CMD_DISABLE_RESPONSE)
+				if (!setting_disable_resp_1 || req.cmd == LED_CMD_DISABLE_RESPONSE || req.cmd == LED_CMD_GET_BOARD_INFO
+				 || req.cmd == LED_CMD_GET_FIRM_SUM|| req.cmd == LED_CMD_GET_PROTOCOL_VER)
 				{
+
+					printf("Response length 2: %d\nPayload: ", out_len);
+					for (int i = 0; i < out_len; i++)
+					{
+						printf("%02X ", out_buffer[i]);
+					}
+					printf("\n");
 					tud_cdc_n_write(1, out_buffer, out_len);
 					tud_cdc_n_write_flush(1);
 				}
@@ -528,49 +583,49 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 			}
 		}
 
-		if (multicore_fifo_rvalid())
-		{
-			uint32_t word = multicore_fifo_pop_blocking();
+		// if (multicore_fifo_rvalid())
+		// {
+		// 	uint32_t word = multicore_fifo_pop_blocking();
 
-			if (word & 0x200)
-			{
-				uint32_t len = word & 0xFF;
-				uint8_t temp_buf[MAX_PACKET];
+		// 	if (word & 0x200)
+		// 	{
+		// 		uint32_t len = word & 0xFF;
+		// 		uint8_t temp_buf[MAX_PACKET];
 
-				if (len > sizeof(temp_buf))
-				{
-					printf("Invalid length from core1: %u\n", len);
+		// 		if (len > sizeof(temp_buf))
+		// 		{
+		// 			printf("Invalid length from core1: %u\n", len);
 
-					for (uint32_t i = 0; i < len; i++)
-					{
-						if (multicore_fifo_rvalid())
-							multicore_fifo_pop_blocking();
-					}
-					continue;
-				}
+		// 			for (uint32_t i = 0; i < len; i++)
+		// 			{
+		// 				if (multicore_fifo_rvalid())
+		// 					multicore_fifo_pop_blocking();
+		// 			}
+		// 			continue;
+		// 		}
 
-				for (uint32_t i = 0; i < len; i++)
-				{
-					uint32_t dword = multicore_fifo_pop_blocking();
-					if (!(dword & 0x100))
-					{
-						printf("Error: expected data marker, got 0x%08X\n", dword);
-						break;
-					}
-					temp_buf[i] = (uint8_t)(dword & 0xFF);
-				}
+		// 		for (uint32_t i = 0; i < len; i++)
+		// 		{
+		// 			uint32_t dword = multicore_fifo_pop_blocking();
+		// 			if (!(dword & 0x100))
+		// 			{
+		// 				printf("Error: expected data marker, got 0x%08X\n", dword);
+		// 				break;
+		// 			}
+		// 			temp_buf[i] = (uint8_t)(dword & 0xFF);
+		// 		}
 
-				tud_cdc_n_write(1, temp_buf, len);
-				tud_cdc_n_write_flush(1);
+		// 		tud_cdc_n_write(1, temp_buf, len);
+		// 		tud_cdc_n_write_flush(1);
 
-				printf("USB TX (%u bytes): ", len);
-				for (uint32_t i = 0; i < len; i++)
-				{
-					printf("%02X ", temp_buf[i]);
-				}
-				printf("\n");
-			}
-		}
+		// 		printf("USB TX (%u bytes): ", len);
+		// 		for (uint32_t i = 0; i < len; i++)
+		// 		{
+		// 			printf("%02X ", temp_buf[i]);
+		// 		}
+		// 		printf("\n");
+		// 	}
+		// }
 
 		sleep_until(next_frame);
 		next_frame += 1000;

@@ -51,6 +51,7 @@ HRESULT jvs_encode(const uint8_t *in, uint32_t inlen, uint8_t *out, uint32_t *ou
         checksum += byte;
     }
     CHECK_OFFSET_BOUNDARY(offset + 1, *outlen)
+
     out[offset++] = checksum;
     *outlen = offset;
 
