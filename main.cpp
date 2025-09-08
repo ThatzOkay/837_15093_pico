@@ -26,7 +26,7 @@ static uint8_t jvs_buf_2[MAX_PACKET];
 static uint32_t offset_2 = 0;
 static uint32_t expected_length_2 = 0;
 
-static std::string chip_num = "6710";
+static std::string chip_num = "6710A";
 static std::string board_name = "15093-06";
 
 void log_response(jvs_resp_any *resp)
