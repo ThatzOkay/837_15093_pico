@@ -16,17 +16,20 @@
 #define LED_BOARD_02 1
 #define RGB_ORDER GRB
 
+static uint8_t settings_timeout1;
 static bool setting_disable_resp_1 = false;
 static uint8_t jvs_buf_1[MAX_PACKET];
 static uint32_t offset_1 = 0;
 static uint32_t expected_length_1 = 0;
 
+static uint8_t settings_timeout2;
 static bool setting_disable_resp_2 = false;
 static uint8_t jvs_buf_2[MAX_PACKET];
 static uint32_t offset_2 = 0;
 static uint32_t expected_length_2 = 0;
 
-static std::string chip_num = "6710";
+static std::string chip_num_ongeki = "6710A";
+static std::string chip_num_chuni = "6710 ";
 static std::string board_name = "15093-06";
 
 void log_response(jvs_resp_any *resp)
@@ -50,12 +53,23 @@ void led_get_board_info(jvs_req_any *req, jvs_resp_any *resp)
 	resp->report = 1;
 	strcpy(reinterpret_cast<char *>(resp->payload), board_name.c_str());
 	*(resp->payload + 8) = 0x0A;
-	strcpy(reinterpret_cast<char *>(resp->payload) + 9, chip_num.c_str());
+
+	if (req->dest == 0x01 && req->src == 0x02)
+	{
+		strcpy(reinterpret_cast<char *>(resp->payload) + 9, chip_num_ongeki.c_str());
+	}
+	else
+	{
+		strcpy(reinterpret_cast<char *>(resp->payload) + 9, chip_num_chuni.c_str());
+	}
 	*(resp->payload + 14) = 0xFF;
 
-	if (req->dest == 0x01 && req->src == 0x02) {
+	if (req->dest == 0x01 && req->src == 0x02)
+	{
 		*(resp->payload + 15) = 0xa0;
-	} else {
+	}
+	else
+	{
 		*(resp->payload + 15) = 0x90;
 	}
 	*(resp->payload + 16) = 0;
@@ -65,10 +79,13 @@ void led_get_firm_sum(jvs_req_any *req, jvs_resp_any *resp)
 {
 	resp->len += 2;
 
-	if (req->dest == 0x01 && req->src == 0x02) {
+	if (req->dest == 0x01 && req->src == 0x02)
+	{
 		*(resp->payload) = (0xAA53 >> 8) & 0xff;
 		*(resp->payload + 1) = (uint8_t)0xAA53 & 0xff;
-	} else {
+	}
+	else
+	{
 		*(resp->payload) = (0xADF7 >> 8) & 0xff;
 		*(resp->payload + 1) = (uint8_t)0xADF7 & 0xff;
 	}
@@ -79,7 +96,7 @@ void led_get_protocol_ver(jvs_req_any *req, jvs_resp_any *resp)
 	resp->len += 3;
 	*(resp->payload) = 0x01;
 	*(resp->payload + 1) = 0x01;
-	*(resp->payload + 2) = 0x04;
+	*(resp->payload + 2) = 0x00;
 }
 
 void led_reset(jvs_req_any *req, jvs_resp_any *resp, int led_board)
@@ -129,6 +146,33 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 	resp->len += 1;
 	*(resp->payload) = req->payload[0];
+}
+
+void led_timeout(jvs_req_any *req, jvs_resp_any *resp, int led_board)
+{
+	resp->len += 2;
+
+	if (led_board == 0)
+	{
+		settings_timeout1 = req->payload[0] << 8 | req->payload[1];
+	}
+	else
+	{
+		settings_timeout2 = req->payload[0] << 8 | req->payload[1];
+	}
+
+	*(resp->payload) = req->payload[0];
+	*(resp->payload + 1) = req->payload[1];
+}
+
+void led_get_board_status(jvs_req_any *req, jvs_resp_any *resp)
+{
+	resp->len += 4;
+	// is this needed??
+	*(resp->payload) = 0;
+	*(resp->payload + 1) = 0;
+	*(resp->payload + 2) = 0;
+	*(resp->payload + 3) = 0;
 }
 
 // static uint8_t tud_1_count = 0;
@@ -301,6 +345,11 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 		{
 			uint32_t count = tud_cdc_n_read(0, jvs_buf_1 + offset_1, MAX_PACKET - offset_1);
 
+			if (count == 0 || is_all_zero(jvs_buf_1, 4))
+			{
+				continue;
+			}
+
 			offset_1 += count;
 
 			HRESULT result = 1;
@@ -310,35 +359,36 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 			uint8_t out_buffer[MAX_PACKET] = {0};
 			uint32_t out_len = 255;
 
-			if (offset_1 >= 4 && expected_length_1 == 0)
-			{
-				expected_length_1 = jvs_buf_1[3] + 4;
-			}
+			// if (offset_1 >= 4 && expected_length_1 == 0)
+			// {
+			// 	expected_length_1 = jvs_buf_1[3] + 4;
+			// }
 
-			if (expected_length_1 && offset_1 >= expected_length_1)
-			{
-				result = jvs_process_packet(&req, jvs_buf_1, expected_length_1);
+			// if (expected_length_1 && offset_1 >= expected_length_1)
+			// {
+			result = jvs_process_packet(&req, jvs_buf_1, count);
 
-				offset_1 = 0;
-				expected_length_1 = 0;
-			}
-			else
-			{
-				printf("expected 1: %u \n", expected_length_1);
-				printf("offset 1: %u \n", offset_1);
-				printf("Count: %u \n", count);
-				printf("Raw tud read buff:");
-				for (int i = 0; i < sizeof(jvs_buf_1); i++)
-				{
-					printf("%02X ", jvs_buf_1[i]);
-				}
-				printf("\n");
-				continue;
-			}
+			offset_1 = 0;
+			expected_length_1 = 0;
+			// }
+			// else
+			// {
+			// 	printf("expected 1: %u \n", expected_length_1);
+			// 	printf("offset 1: %u \n", offset_1);
+			// 	printf("Count: %u \n", count);
+			// 	printf("Raw tud read buff:");
+			// 	for (int i = 0; i < sizeof(jvs_buf_1); i++)
+			// 	{
+			// 		printf("%02X ", jvs_buf_1[i]);
+			// 	}
+			// 	printf("\n");
+			// 	continue;
+			// }
 
 			if (FAILED(result))
 			{
-				printf("JVS Failed \n");
+				memset(jvs_buf_1, 0, sizeof(jvs_buf_1));
+				printf("JVS Failed 1 \n");
 				result = jvs_write_failure(result, 25, &req, out_buffer, &out_len);
 
 				if (result == S_OK)
@@ -395,8 +445,16 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 					led_set_fade(&req, &resp, 0);
 					break;
 
-				case LED_CMD_SET_LED_FADE_PATTERN: 
+				case LED_CMD_SET_LED_FADE_PATTERN:
 					led_set_fade_pattern(&req, &resp, 0);
+					break;
+
+				case LED_CMD_TIMEOUT:
+					led_timeout(&req, &resp, 0);
+					break;
+
+				case LED_CMD_GET_BOARD_STATUS:
+					led_get_board_status(&req, &resp);
 					break;
 
 				default:
@@ -412,8 +470,7 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 			if (SUCCEEDED(result))
 			{
-				if (!setting_disable_resp_1 || req.cmd == LED_CMD_DISABLE_RESPONSE || req.cmd == LED_CMD_GET_BOARD_INFO
-				 || req.cmd == LED_CMD_GET_FIRM_SUM|| req.cmd == LED_CMD_GET_PROTOCOL_VER)
+				if (!setting_disable_resp_1 || req.cmd == LED_CMD_DISABLE_RESPONSE || req.cmd == LED_CMD_GET_BOARD_INFO || req.cmd == LED_CMD_GET_FIRM_SUM || req.cmd == LED_CMD_GET_PROTOCOL_VER)
 				{
 					printf("Response length 1: %d\nPayload: ", out_len);
 					for (int i = 0; i < out_len; i++)
@@ -451,6 +508,11 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 			uint32_t count = tud_cdc_n_read(1, jvs_buf_2 + offset_2, MAX_PACKET - offset_2);
 
+			if (count == 0 || is_all_zero(jvs_buf_2, 4))
+			{
+				continue;
+			}
+
 			offset_2 += count;
 
 			HRESULT result = 1;
@@ -460,35 +522,35 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 			uint8_t out_buffer[MAX_PACKET] = {0};
 			uint32_t out_len = 255;
 
-			if (offset_2 >= 4 && expected_length_2 == 0)
-			{
-				expected_length_2 = jvs_buf_2[3] + 4;
-			}
+			// if (offset_2 >= 4 && expected_length_2 == 0)
+			// {
+			// 	expected_length_2 = jvs_buf_2[3] + 4;
+			// }
 
-			if (expected_length_2 && offset_2 >= expected_length_2)
-			{
-				result = jvs_process_packet(&req, jvs_buf_2, expected_length_2);
+			// if (expected_length_2 && offset_2 >= expected_length_2)
+			// {
+			result = jvs_process_packet(&req, jvs_buf_2, expected_length_2);
 
-				offset_2 = 0;
-				expected_length_2 = 0;
-			}
-			else
-			{
-				printf("expected 2: %u \n", expected_length_2);
-				printf("offset 2: %u \n", offset_2);
-				printf("Count: %u \n", count);
-				printf("Raw tud read buff:");
-				for (int i = 0; i < sizeof(jvs_buf_2); i++)
-				{
-					printf("%02X ", jvs_buf_2[i]);
-				}
-				printf("\n");
-				continue;
-			}
+			offset_2 = 0;
+			expected_length_2 = 0;
+			// }
+			// else
+			// {
+			// 	printf("expected 2: %u \n", expected_length_2);
+			// 	printf("offset 2: %u \n", offset_2);
+			// 	printf("Count: %u \n", count);
+			// 	printf("Raw tud read buff:");
+			// 	for (int i = 0; i < sizeof(jvs_buf_2); i++)
+			// 	{
+			// 		printf("%02X ", jvs_buf_2[i]);
+			// 	}
+			// 	printf("\n");
+			// 	continue;
+			// }
 
 			if (FAILED(result))
 			{
-				printf("JVS Failed \n");
+				printf("JVS Failed 2 \n");
 				result = jvs_write_failure(result, 25, &req, out_buffer, &out_len);
 
 				if (result == S_OK)
@@ -545,10 +607,17 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 					led_set_fade(&req, &resp, 1);
 					break;
 
-				case LED_CMD_SET_LED_FADE_PATTERN: 
+				case LED_CMD_SET_LED_FADE_PATTERN:
 					led_set_fade_pattern(&req, &resp, 0);
 					break;
-					
+
+				case LED_CMD_TIMEOUT:
+					led_timeout(&req, &resp, 0);
+					break;
+
+				case LED_CMD_GET_BOARD_STATUS:
+					led_get_board_status(&req, &resp);
+					break;
 
 				default:
 					printf("Unknown command: 0x%02X\n", req.cmd);
@@ -563,8 +632,7 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 			if (SUCCEEDED(result))
 			{
-				if (!setting_disable_resp_1 || req.cmd == LED_CMD_DISABLE_RESPONSE || req.cmd == LED_CMD_GET_BOARD_INFO
-				 || req.cmd == LED_CMD_GET_FIRM_SUM|| req.cmd == LED_CMD_GET_PROTOCOL_VER)
+				if (!setting_disable_resp_1 || req.cmd == LED_CMD_DISABLE_RESPONSE || req.cmd == LED_CMD_GET_BOARD_INFO || req.cmd == LED_CMD_GET_FIRM_SUM || req.cmd == LED_CMD_GET_PROTOCOL_VER)
 				{
 
 					printf("Response length 2: %d\nPayload: ", out_len);

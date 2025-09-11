@@ -77,6 +77,13 @@ HRESULT jvs_process_packet(struct jvs_req_any *req, uint8_t *buff, uint32_t len)
 
     if (len < 4)
     {
+        printf("Raw jvs_process_packet read buff:");
+        for (int i = 0; i < sizeof(buff); i++)
+        {
+            printf("%02X ", buff[i]);
+        }
+        printf("\n");
+        printf("JVS: len error: 0x%02X\n", buff[0]);
         return E_FAIL;
     }
 
@@ -84,6 +91,13 @@ HRESULT jvs_process_packet(struct jvs_req_any *req, uint8_t *buff, uint32_t len)
 
     if (const uint32_t total_len = static_cast<uint32_t>(payload_len + 4); len < total_len)
     {
+        printf("Raw jvs_process_packet read buff:");
+        for (int i = 0; i < sizeof(buff); i++)
+        {
+            printf("%02X ", buff[i]);
+        }
+        printf("\n");
+        printf("JVS: total len error: 0x%02X\n", buff[0]);
         return E_FAIL;
     }
 
