@@ -19,12 +19,13 @@ cmake_minimum_required(VERSION 3.12)
 include(pico_sdk_import.cmake)
 
 project(pico_sega_led C CXX ASM)
+set(PICO_CXX_ENABLE_EXCEPTIONS 1)
 
 set(CMAKE_C_STANDARD 11)
 
 pico_sdk_init()
 include_directories(${CMAKE_CURRENT_LIST_DIR})
-add_compile_options(-Wall -Wfatal-errors -O3)
+add_compile_options(-Wall -Wfatal-errors -fexceptions -O3)
 link_libraries(pico_multicore pico_stdlib
         hardware_pio hardware_adc hardware_flash hardware_watchdog
         tinyusb_device tinyusb_board)
@@ -32,7 +33,12 @@ link_libraries(pico_multicore pico_stdlib
 
 function(make_firmware board board_def)
     add_executable(${board}
-        main.cpp usb_descriptors.cpp jvs.cpp)
+        main.cpp usb_descriptors.cpp jvs.cpp led_strip.cpp)
+
+    add_subdirectory(pico_led)
+
+    target_link_libraries(${board} PicoLed)
+
     target_compile_definitions(${board} PUBLIC ${board_def})
 
     pico_generate_pio_header(${board} ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio)

@@ -3,6 +3,8 @@
 #include "hresult.h"
 #include "jvs.h"
 #include "led.h"
+#include "led_strip.h"
+#include "PicoLed.hpp"
 #include "bsp/board_api.h"
 #include "device/usbd.h"
 #include "hardware/clocks.h"
@@ -11,21 +13,16 @@
 #include "pico/time.h"
 
 #define MAX_PACKET 255
-#define LED_BOARD_01 0
-#define LED_BOARD_02 1
-#define RGB_ORDER GRB
 
 static uint8_t settings_timeout1;
 static bool setting_disable_resp_1 = false;
 static uint8_t jvs_buf_1[MAX_PACKET];
 static uint32_t offset_1 = 0;
-static uint32_t expected_length_1 = 0;
 
 static uint8_t settings_timeout2;
 static bool setting_disable_resp_2 = false;
 static uint8_t jvs_buf_2[MAX_PACKET];
 static uint32_t offset_2 = 0;
-static uint32_t expected_length_2 = 0;
 
 static std::string chip_num_ongeki = "6710A";
 static std::string chip_num_chuni = "6710 ";
@@ -116,11 +113,23 @@ void led_reset(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	// fade_modifier = 1;
 	// fade_value = 255;
 
-	// wipe_leds(led_board);
+	led_strip::reset(led_board);
 }
 
 void led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
+	size_t num_leds = req->len / 3;
+	if (num_leds > MAX_LEDS) num_leds = MAX_LEDS;
+
+	std::array<led, MAX_LEDS> leds{};
+
+	for (size_t i = 0; i < num_leds; ++i) {
+		leds[i].r = req->payload[i * 3 + 0];
+		leds[i].g = req->payload[i * 3 + 1];
+		leds[i].b = req->payload[i * 3 + 2];
+	}
+
+	led_strip::set_pixels(leds, led_board);
 }
 
 void led_set_fade(jvs_req_any *req, jvs_resp_any *resp, int led_board)
@@ -147,7 +156,7 @@ void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	*(resp->payload) = req->payload[0];
 }
 
-void led_timeout(jvs_req_any *req, jvs_resp_any *resp, int led_board)
+void led_timeout(const jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
 	resp->len += 2;
 
@@ -176,7 +185,7 @@ void led_get_board_status(jvs_req_any *req, jvs_resp_any *resp)
 
 void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
-	printf("LED 1 CMD: 0x%02X \n", req->cmd);
+	printf("LED %d CMD: 0x%02X \n", led_board, req->cmd);
 
 	resp->src = req->dest;
 	resp->dest = req->src;
@@ -240,6 +249,84 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	}
 }
 
+void process_cdc_port(int port, uint8_t* jvs_buff, uint32_t* offset_ptr)
+{
+	uint32_t offset = *offset_ptr;
+	if (const uint32_t max_remaining = MAX_PACKET - offset; max_remaining <= 0)
+	{
+		offset = 0;
+	}
+
+	uint32_t count = tud_cdc_n_read(port, jvs_buff + offset, MAX_PACKET - offset);
+	if (count == 0)
+	{
+		return;
+	}
+
+	offset += count;
+
+	HRESULT result = 1;
+	jvs_req_any req = {};
+	jvs_resp_any resp = {};
+
+	uint8_t out_buffer[MAX_PACKET] = {};
+	uint32_t out_len = sizeof(out_buffer);
+
+	result = jvs_process_packet(&req, jvs_buff, offset);
+
+	if (FAILED(result))
+	{
+		memset(jvs_buff, 0, MAX_PACKET);
+		printf("JVS Failed (port %d): HRESULT=0x%08lX\n", port, static_cast<unsigned long>(result));
+
+		result = jvs_write_failure(result, 25, &req, out_buffer, &out_len);
+		if (result == S_OK)
+		{
+			tud_cdc_n_write(port, out_buffer, out_len);
+			tud_cdc_n_write_flush(port);
+			*offset_ptr = 0;
+			return;
+		}
+		else
+		{
+			*offset_ptr = 0;
+			return;
+		}
+	}
+
+	handle_led_command(&req, &resp, offset);
+
+	if (resp.len != 0)
+	{
+		result = jvs_write_packet(&resp, out_buffer, &out_len);
+	}
+
+	if (SUCCEEDED(result))
+	{
+		if (!setting_disable_resp_1 ||
+			req.cmd == LED_CMD_DISABLE_RESPONSE ||
+			req.cmd == LED_CMD_GET_BOARD_INFO ||
+			req.cmd == LED_CMD_GET_FIRM_SUM ||
+			req.cmd == LED_CMD_GET_PROTOCOL_VER)
+		{
+			printf("Response length (port %d): %u\nPayload: ", port, (unsigned)out_len);
+			for (uint32_t i = 0; i < out_len; ++i)
+			{
+				printf("%02X ", out_buffer[i]);
+			}
+			printf("\n");
+			tud_cdc_n_write(port, out_buffer, out_len);
+			tud_cdc_n_write_flush(port);
+		}
+		else
+		{
+			printf("Error writing packet (port %d): 0x%08lX\n", port, static_cast<unsigned long>(result));
+		}
+
+		*offset_ptr = 0;
+	}
+}
+
 [[noreturn]] static void core0_loop()
 {
 	uint64_t next_frame = time_us_64();
@@ -249,178 +336,16 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 		if (tud_cdc_n_available(0))
 		{
-			uint32_t count = tud_cdc_n_read(0, jvs_buf_1 + offset_1, MAX_PACKET - offset_1);
-
-			if (count == 0 || is_all_zero(jvs_buf_1, 4))
-			{
-				continue;
-			}
-
-			offset_1 += count;
-
-			HRESULT result = 1;
-			jvs_req_any req = {0};
-			jvs_resp_any resp = {0};
-
-			uint8_t out_buffer[MAX_PACKET] = {0};
-			uint32_t out_len = 255;
-
-			// if (offset_1 >= 4 && expected_length_1 == 0)
-			// {
-			// 	expected_length_1 = jvs_buf_1[3] + 4;
-			// }
-
-			// if (expected_length_1 && offset_1 >= expected_length_1)
-			// {
-			result = jvs_process_packet(&req, jvs_buf_1, count);
-
-			offset_1 = 0;
-			expected_length_1 = 0;
-			// }
-			// else
-			// {
-			// 	printf("expected 1: %u \n", expected_length_1);
-			// 	printf("offset 1: %u \n", offset_1);
-			// 	printf("Count: %u \n", count);
-			// 	printf("Raw tud read buff:");
-			// 	for (int i = 0; i < sizeof(jvs_buf_1); i++)
-			// 	{
-			// 		printf("%02X ", jvs_buf_1[i]);
-			// 	}
-			// 	printf("\n");
-			// 	continue;
-			// }
-
-			if (FAILED(result))
-			{
-				memset(jvs_buf_1, 0, sizeof(jvs_buf_1));
-				printf("JVS Failed 1 \n");
-				result = jvs_write_failure(result, 25, &req, out_buffer, &out_len);
-
-				if (result == S_OK)
-				{
-					tud_cdc_n_write(0, out_buffer, out_len);
-					tud_cdc_n_write_flush(0);
-				}
-			}
-			else
-			{
-				handle_led_command(&req, &resp, 0);
-			}
-
-			if (resp.len != 0)
-			{
-				result = jvs_write_packet(&resp, out_buffer, &out_len);
-			}
-
-			if (SUCCEEDED(result))
-			{
-				if (!setting_disable_resp_1 || req.cmd == LED_CMD_DISABLE_RESPONSE || req.cmd == LED_CMD_GET_BOARD_INFO || req.cmd == LED_CMD_GET_FIRM_SUM || req.cmd == LED_CMD_GET_PROTOCOL_VER)
-				{
-					printf("Response length 1: %d\nPayload: ", out_len);
-					for (int i = 0; i < out_len; i++)
-					{
-						printf("%02X ", out_buffer[i]);
-					}
-					printf("\n");
-					tud_cdc_n_write(0, out_buffer, out_len);
-					tud_cdc_n_write_flush(0);
-				}
-			}
-			else
-			{
-				printf("Error writing packet %ld \n", result);
-			}
+			process_cdc_port(0, jvs_buf_1, &offset_1);
 		}
 
 		if (tud_cdc_n_available(1))
 		{
-			uint32_t count = tud_cdc_n_read(1, jvs_buf_2 + offset_2, MAX_PACKET - offset_2);
-
-			if (count == 0 || is_all_zero(jvs_buf_2, 4))
-			{
-				continue;
-			}
-
-			offset_2 += count;
-
-			HRESULT result = 1;
-			jvs_req_any req = {0};
-			jvs_resp_any resp = {0};
-
-			uint8_t out_buffer[MAX_PACKET] = {0};
-			uint32_t out_len = 255;
-
-			// if (offset_2 >= 4 && expected_length_2 == 0)
-			// {
-			// 	expected_length_2 = jvs_buf_2[3] + 4;
-			// }
-
-			// if (expected_length_2 && offset_2 >= expected_length_2)
-			// {
-			result = jvs_process_packet(&req, jvs_buf_2, expected_length_2);
-
-			offset_2 = 0;
-			expected_length_2 = 0;
-			// }
-			// else
-			// {
-			// 	printf("expected 2: %u \n", expected_length_2);
-			// 	printf("offset 2: %u \n", offset_2);
-			// 	printf("Count: %u \n", count);
-			// 	printf("Raw tud read buff:");
-			// 	for (int i = 0; i < sizeof(jvs_buf_2); i++)
-			// 	{
-			// 		printf("%02X ", jvs_buf_2[i]);
-			// 	}
-			// 	printf("\n");
-			// 	continue;
-			// }
-
-			if (FAILED(result))
-			{
-				printf("JVS Failed 2 \n");
-				result = jvs_write_failure(result, 25, &req, out_buffer, &out_len);
-
-				if (result == S_OK)
-				{
-					tud_cdc_n_write(1, out_buffer, out_len);
-					tud_cdc_n_write_flush(1);
-				}
-			}
-			else
-			{
-				handle_led_command(&req, &resp, 0);
-			}
-
-			if (resp.len != 0)
-			{
-				result = jvs_write_packet(&resp, out_buffer, &out_len);
-			}
-
-			if (SUCCEEDED(result))
-			{
-				if (!setting_disable_resp_1 || req.cmd == LED_CMD_DISABLE_RESPONSE || req.cmd == LED_CMD_GET_BOARD_INFO || req.cmd == LED_CMD_GET_FIRM_SUM || req.cmd == LED_CMD_GET_PROTOCOL_VER)
-				{
-
-					printf("Response length 2: %d\nPayload: ", out_len);
-					for (int i = 0; i < out_len; i++)
-					{
-						printf("%02X ", out_buffer[i]);
-					}
-					printf("\n");
-					tud_cdc_n_write(1, out_buffer, out_len);
-					tud_cdc_n_write_flush(1);
-				}
-			}
-			else
-			{
-				printf("Error writing packet %ld \n", result);
-			}
+			process_cdc_port(1, jvs_buf_2, &offset_2);
 		}
 
+		next_frame = time_us_64() + 1000;
 		sleep_until(next_frame);
-		next_frame += 1000;
 	}
 }
 
