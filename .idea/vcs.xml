@@ -2,7 +2,6 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/build/_deps/picotool-src" vcs="Git" />
     <mapping directory="/usr/share/pico-sdk/lib/btstack" vcs="Git" />
     <mapping directory="/usr/share/pico-sdk/lib/cyw43-driver" vcs="Git" />
     <mapping directory="/usr/share/pico-sdk/lib/lwip" vcs="Git" />

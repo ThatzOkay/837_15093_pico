@@ -7,7 +7,6 @@
 #include "device/usbd.h"
 #include "hardware/clocks.h"
 #include "hardware/timer.h"
-#include "pico/multicore.h"
 #include "pico/stdio.h"
 #include "pico/time.h"
 
@@ -32,7 +31,7 @@ static std::string chip_num_ongeki = "6710A";
 static std::string chip_num_chuni = "6710 ";
 static std::string board_name = "15093-06";
 
-void log_response(jvs_resp_any *resp)
+void log_response(const jvs_resp_any *resp)
 {
 	printf("Response length: %d\nPayload: ", resp->len);
 	for (int i = 0; i < resp->len; i++)
@@ -44,7 +43,7 @@ void log_response(jvs_resp_any *resp)
 
 bool is_all_zero(const void *buf, size_t len)
 {
-	return memchr(buf, 1, len) == NULL;
+	return memchr(buf, 1, len) == nullptr;
 }
 
 void led_get_board_info(jvs_req_any *req, jvs_resp_any *resp)
@@ -175,164 +174,71 @@ void led_get_board_status(jvs_req_any *req, jvs_resp_any *resp)
 	*(resp->payload + 3) = 0;
 }
 
-// static uint8_t tud_1_count = 0;
-// int c_buff = 0;
+void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
+{
+	printf("LED 1 CMD: 0x%02X \n", req->cmd);
 
-// [[noreturn]] static void core1_loop()
-// {
-// 	while (true)
-// 	{
-// 		if (multicore_fifo_rvalid())
-// 		{
-// 			const uint32_t count = multicore_fifo_pop_blocking();
+	resp->src = req->dest;
+	resp->dest = req->src;
+	resp->cmd = req->cmd;
+	resp->len = 3;
+	resp->status = 1;
+	resp->report = 1;
 
-// 			if (count > sizeof(jvs_buf_2))
-// 			{
-// 				printf("Error: count %lu exceeds buffer size %lu\n",
-// 					   count, sizeof(jvs_buf_2));
-// 				continue;
-// 			}
+	switch (req->cmd)
+	{
+	case LED_CMD_GET_BOARD_INFO:
+		led_get_board_info(req, resp);
+		break;
 
-// 			printf("Count 2: %u \n", count);
+	case LED_CMD_GET_FIRM_SUM:
+		led_get_firm_sum(req, resp);
+		break;
 
-// 			for (uint32_t i = 0; i < count; i++)
-// 			{
-// 				jvs_buf_2[i] = (uint8_t)multicore_fifo_pop_blocking();
-// 			}
+	case LED_CMD_GET_PROTOCOL_VER:
+		led_get_protocol_ver(req, resp);
+		break;
 
-// 			if (is_all_zero(jvs_buf_2, count))
-// 			{
-// 				continue;
-// 			}
+	case LED_CMD_DISABLE_RESPONSE:
+		led_disable_response(req, resp, led_board );
+		break;
 
-// 			printf("Received: ");
-// 			for (uint32_t i = 0; i < count; i++)
-// 			{
-// 				printf("%02X ", jvs_buf_2[i]);
-// 			}
-// 			printf("\n");
+	case LED_CMD_RESET:
+		led_reset(req, resp, led_board);
+		break;
+	case LED_CMD_SET_LED:
+		printf("led payload: ");
 
-// 			offset_2 += count;
+		for (const unsigned char i : req->payload)
+		{
+			printf("%02X ", i);
+		}
+		printf("\n");
 
-// 			HRESULT result = 1;
-// 			jvs_req_any req = {0};
-// 			jvs_resp_any resp = {0};
+		led_set(req, resp, 0);
+		break;
 
-// 			uint8_t out_buffer[MAX_PACKET];
-// 			uint32_t out_len = 255;
+	case LED_CMD_SET_LED_FADE:
+		led_set_fade(req, resp, 0);
+		break;
 
-// 			if (offset_2 >= 4 && expected_length_2 == 0)
-// 			{
-// 				expected_length_2 = jvs_buf_2[3] + 4;
-// 			}
+	case LED_CMD_SET_LED_FADE_PATTERN:
+		led_set_fade_pattern(req, resp, 0);
+		break;
 
-// 			if (expected_length_2 && offset_2 >= expected_length_2)
-// 			{
-// 				result = jvs_process_packet(&req, jvs_buf_2, expected_length_2);
+	case LED_CMD_TIMEOUT:
+		led_timeout(req, resp, 0);
+		break;
 
-// 				offset_2 = 0;
-// 				expected_length_2 = 0;
-// 			}
-// 			else
-// 			{
-// 				printf("expected 2: %u \n", expected_length_1);
-// 				printf("offset 2: %u \n", offset_1);
-// 				printf("Count 2: %u \n", count);
-// 				printf("Raw tud read buff 2:");
-// 				for (int i = 0; i < sizeof(jvs_buf_1); i++)
-// 				{
-// 					printf("%02X ", jvs_buf_1[i]);
-// 				}
-// 				printf("\n");
-// 				continue;
-// 			}
+	case LED_CMD_GET_BOARD_STATUS:
+		led_get_board_status(req, resp);
+		break;
 
-// 			if (FAILED(result))
-// 			{
-// 				printf("JVS Failed \n");
-// 				result = jvs_write_failure(result, 25, &req, out_buffer, &out_len);
-
-// 				if (result == S_OK)
-// 				{
-// 					multicore_fifo_push_blocking(0x200 | out_len);
-// 					for (uint32_t i = 0; i < out_len; i++)
-// 					{
-// 						multicore_fifo_push_blocking(0x100 | out_buffer[i]);
-// 					}
-// 				}
-// 			}
-// 			else
-// 			{
-// 				resp.src = req.dest;
-// 				resp.dest = req.src;
-// 				resp.cmd = req.cmd;
-// 				resp.len = 3;
-// 				resp.status = 1;
-// 				resp.report = 1;
-
-// 				switch (req.cmd)
-// 				{
-// 				case LED_CMD_GET_BOARD_INFO:
-// 					led_get_board_info(&req, &resp);
-// 					break;
-
-// 				case LED_CMD_GET_FIRM_SUM:
-// 					led_get_firm_sum(&req, &resp);
-// 					break;
-
-// 				case LED_CMD_GET_PROTOCOL_VER:
-// 					led_get_protocol_ver(&req, &resp);
-// 					break;
-
-// 				case LED_CMD_DISABLE_RESPONSE:
-// 					led_disable_response(&req, &resp, 1);
-// 					break;
-
-// 				case LED_CMD_RESET:
-// 					led_reset(&req, &resp, 1);
-// 					break;
-// 				case LED_CMD_SET_LED:
-// 					printf("led payload: ");
-
-// 					for (int i = 0; i < sizeof(req.payload); i++)
-// 					{
-// 						printf("%02X ", req.payload[i]);
-// 					}
-// 					printf("\n");
-
-// 					led_set(&req, &resp, 1);
-// 					break;
-
-// 				default:
-// 					printf("Unknown command: 0x%02X\n", req.cmd);
-// 					break;
-// 				}
-// 			}
-
-// 			if (resp.len != 0)
-// 			{
-// 				result = jvs_write_packet(&resp, out_buffer, &out_len);
-// 			}
-
-// 			if (SUCCEEDED(result))
-// 			{
-// 				if (!setting_disable_resp_2 || req.cmd == LED_CMD_DISABLE_RESPONSE)
-// 				{
-// 					multicore_fifo_push_blocking(0x200 | out_len);
-// 					for (uint32_t i = 0; i < out_len; i++)
-// 					{
-// 						multicore_fifo_push_blocking(0x100 | out_buffer[i]);
-// 					}
-// 				}
-// 			}
-// 			else
-// 			{
-// 				printf("Error writing packet %ld \n", result);
-// 			}
-// 		}
-// 		sleep_ms(1);
-// 	}
-// }
+	default:
+		printf("Unknown command: 0x%02X\n", req->cmd);
+		break;
+	}
+}
 
 [[noreturn]] static void core0_loop()
 {
@@ -399,68 +305,7 @@ void led_get_board_status(jvs_req_any *req, jvs_resp_any *resp)
 			}
 			else
 			{
-				resp.src = req.dest;
-				resp.dest = req.src;
-				resp.cmd = req.cmd;
-				resp.len = 3;
-				resp.status = 1;
-				resp.report = 1;
-
-				printf("LED 1 CMD: 0x%02X \n", req.cmd);
-
-				switch (req.cmd)
-				{
-				case LED_CMD_GET_BOARD_INFO:
-					led_get_board_info(&req, &resp);
-					break;
-
-				case LED_CMD_GET_FIRM_SUM:
-					led_get_firm_sum(&req, &resp);
-					break;
-
-				case LED_CMD_GET_PROTOCOL_VER:
-					led_get_protocol_ver(&req, &resp);
-					break;
-
-				case LED_CMD_DISABLE_RESPONSE:
-					led_disable_response(&req, &resp, 0);
-					break;
-
-				case LED_CMD_RESET:
-					led_reset(&req, &resp, 0);
-					break;
-				case LED_CMD_SET_LED:
-					printf("led payload: ");
-
-					for (int i = 0; i < sizeof(req.payload); i++)
-					{
-						printf("%02X ", req.payload[i]);
-					}
-					printf("\n");
-
-					led_set(&req, &resp, 0);
-					break;
-
-				case LED_CMD_SET_LED_FADE:
-					led_set_fade(&req, &resp, 0);
-					break;
-
-				case LED_CMD_SET_LED_FADE_PATTERN:
-					led_set_fade_pattern(&req, &resp, 0);
-					break;
-
-				case LED_CMD_TIMEOUT:
-					led_timeout(&req, &resp, 0);
-					break;
-
-				case LED_CMD_GET_BOARD_STATUS:
-					led_get_board_status(&req, &resp);
-					break;
-
-				default:
-					printf("Unknown command: 0x%02X\n", req.cmd);
-					break;
-				}
+				handle_led_command(&req, &resp, 0);
 			}
 
 			if (resp.len != 0)
@@ -490,22 +335,6 @@ void led_get_board_status(jvs_req_any *req, jvs_resp_any *resp)
 
 		if (tud_cdc_n_available(1))
 		{
-			// 	// uint8_t buf[MAX_PACKET];
-			// 	// uint32_t count = tud_cdc_n_read(1, buf + offset_1, MAX_PACKET - offset_1);
-			// 	// tud_1_count = count;
-			// 	// printf("Reading serial 2 \n");
-			// 	// printf("Received before fifo: ");
-			// 	// for (uint32_t i = 0; i < count; i++)
-			// 	// {
-			// 	// 	printf("%02X ", buf[i]);
-			// 	// }
-			// 	// printf("\n");
-			// 	// multicore_fifo_push_blocking(tud_1_count); // first send count
-			// 	// for (uint32_t i = 0; i < tud_1_count; i++)
-			// 	// {
-			// 	// 	multicore_fifo_push_blocking(buf[i]);
-			// 	// }
-
 			uint32_t count = tud_cdc_n_read(1, jvs_buf_2 + offset_2, MAX_PACKET - offset_2);
 
 			if (count == 0 || is_all_zero(jvs_buf_2, 4))
@@ -561,68 +390,7 @@ void led_get_board_status(jvs_req_any *req, jvs_resp_any *resp)
 			}
 			else
 			{
-				resp.src = req.dest;
-				resp.dest = req.src;
-				resp.cmd = req.cmd;
-				resp.len = 3;
-				resp.status = 1;
-				resp.report = 1;
-
-				printf("LED 2 CMD: 0x%02X \n", req.cmd);
-
-				switch (req.cmd)
-				{
-				case LED_CMD_GET_BOARD_INFO:
-					led_get_board_info(&req, &resp);
-					break;
-
-				case LED_CMD_GET_FIRM_SUM:
-					led_get_firm_sum(&req, &resp);
-					break;
-
-				case LED_CMD_GET_PROTOCOL_VER:
-					led_get_protocol_ver(&req, &resp);
-					break;
-
-				case LED_CMD_DISABLE_RESPONSE:
-					led_disable_response(&req, &resp, 1);
-					break;
-
-				case LED_CMD_RESET:
-					led_reset(&req, &resp, 1);
-					break;
-				case LED_CMD_SET_LED:
-					printf("led payload: ");
-
-					for (int i = 0; i < sizeof(req.payload); i++)
-					{
-						printf("%02X ", req.payload[i]);
-					}
-					printf("\n");
-
-					led_set(&req, &resp, 1);
-					break;
-
-				case LED_CMD_SET_LED_FADE:
-					led_set_fade(&req, &resp, 1);
-					break;
-
-				case LED_CMD_SET_LED_FADE_PATTERN:
-					led_set_fade_pattern(&req, &resp, 0);
-					break;
-
-				case LED_CMD_TIMEOUT:
-					led_timeout(&req, &resp, 0);
-					break;
-
-				case LED_CMD_GET_BOARD_STATUS:
-					led_get_board_status(&req, &resp);
-					break;
-
-				default:
-					printf("Unknown command: 0x%02X\n", req.cmd);
-					break;
-				}
+				handle_led_command(&req, &resp, 0);
 			}
 
 			if (resp.len != 0)
@@ -650,50 +418,6 @@ void led_get_board_status(jvs_req_any *req, jvs_resp_any *resp)
 				printf("Error writing packet %ld \n", result);
 			}
 		}
-
-		// if (multicore_fifo_rvalid())
-		// {
-		// 	uint32_t word = multicore_fifo_pop_blocking();
-
-		// 	if (word & 0x200)
-		// 	{
-		// 		uint32_t len = word & 0xFF;
-		// 		uint8_t temp_buf[MAX_PACKET];
-
-		// 		if (len > sizeof(temp_buf))
-		// 		{
-		// 			printf("Invalid length from core1: %u\n", len);
-
-		// 			for (uint32_t i = 0; i < len; i++)
-		// 			{
-		// 				if (multicore_fifo_rvalid())
-		// 					multicore_fifo_pop_blocking();
-		// 			}
-		// 			continue;
-		// 		}
-
-		// 		for (uint32_t i = 0; i < len; i++)
-		// 		{
-		// 			uint32_t dword = multicore_fifo_pop_blocking();
-		// 			if (!(dword & 0x100))
-		// 			{
-		// 				printf("Error: expected data marker, got 0x%08X\n", dword);
-		// 				break;
-		// 			}
-		// 			temp_buf[i] = (uint8_t)(dword & 0xFF);
-		// 		}
-
-		// 		tud_cdc_n_write(1, temp_buf, len);
-		// 		tud_cdc_n_write_flush(1);
-
-		// 		printf("USB TX (%u bytes): ", len);
-		// 		for (uint32_t i = 0; i < len; i++)
-		// 		{
-		// 			printf("%02X ", temp_buf[i]);
-		// 		}
-		// 		printf("\n");
-		// 	}
-		// }
 
 		sleep_until(next_frame);
 		next_frame += 1000;
