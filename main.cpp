@@ -11,8 +11,7 @@
 #include "hardware/timer.h"
 #include "pico/stdio.h"
 #include "pico/time.h"
-
-#define MAX_PACKET 255
+#include "config.h"
 
 static uint8_t settings_timeout1;
 static bool setting_disable_resp_1 = false;
@@ -71,6 +70,7 @@ void led_get_board_info(jvs_req_any *req, jvs_resp_any *resp)
 	*(resp->payload + 16) = 0;
 	*(resp->payload + 17) = 204;
 }
+
 void led_get_firm_sum(jvs_req_any *req, jvs_resp_any *resp)
 {
 	resp->len += 2;
@@ -118,18 +118,45 @@ void led_reset(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 void led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
-	size_t num_leds = req->len / 3;
-	if (num_leds > MAX_LEDS) num_leds = MAX_LEDS;
+    size_t offset = 0;
+    switch (led_board)
+    {
+    case 0:
+        offset = LED_STRIP_01_OFFSET;
+        break;
+    case 1:
+        offset = LED_STRIP_02_OFFSET;
+        break;
+    default:
+        offset = 0;
+        break;
+    }
 
-	std::array<led, MAX_LEDS> leds{};
+    size_t num_leds = req->len / 3;
 
-	for (size_t i = 0; i < num_leds; ++i) {
-		leds[i].r = req->payload[i * 3 + 0];
-		leds[i].g = req->payload[i * 3 + 1];
-		leds[i].b = req->payload[i * 3 + 2];
-	}
+    if (num_leds > MAX_LEDS)
+        num_leds = MAX_LEDS;
 
-	led_strip::set_pixels(leds, led_board);
+    std::array<color, MAX_LEDS> leds{};
+
+	if (offset > 0)
+    {
+        for (size_t i = 0; i < offset; ++i)
+        {
+            leds[i].r = 0;
+            leds[i].g = 0;
+            leds[i].b = 0;
+        }
+    }
+
+    for (size_t i = 0; i < num_leds; ++i)
+    {
+        leds[i].r = req->payload[(i + offset) * 3 + 0];
+        leds[i].g = req->payload[(i + offset) * 3 + 1];
+        leds[i].b = req->payload[(i + offset) * 3 + 2];
+    }
+
+    led_strip::set_pixels(leds, led_board);
 }
 
 void led_set_fade(jvs_req_any *req, jvs_resp_any *resp, int led_board)
@@ -185,8 +212,6 @@ void led_get_board_status(jvs_req_any *req, jvs_resp_any *resp)
 
 void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
-	printf("LED %d CMD: 0x%02X \n", led_board, req->cmd);
-
 	resp->src = req->dest;
 	resp->dest = req->src;
 	resp->cmd = req->cmd;
@@ -209,34 +234,34 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 		break;
 
 	case LED_CMD_DISABLE_RESPONSE:
-		led_disable_response(req, resp, led_board );
+		led_disable_response(req, resp, led_board);
 		break;
 
 	case LED_CMD_RESET:
 		led_reset(req, resp, led_board);
 		break;
 	case LED_CMD_SET_LED:
-		printf("led payload: ");
+		// printf("led payload: ");
 
-		for (const unsigned char i : req->payload)
-		{
-			printf("%02X ", i);
-		}
-		printf("\n");
+		// for (const unsigned char i : req->payload)
+		// {
+		// 	printf("%02X ", i);
+		// }
+		// printf("\n");
 
-		led_set(req, resp, 0);
+		led_set(req, resp, led_board);
 		break;
 
 	case LED_CMD_SET_LED_FADE:
-		led_set_fade(req, resp, 0);
+		led_set_fade(req, resp, led_board);
 		break;
 
 	case LED_CMD_SET_LED_FADE_PATTERN:
-		led_set_fade_pattern(req, resp, 0);
+		led_set_fade_pattern(req, resp, led_board);
 		break;
 
 	case LED_CMD_TIMEOUT:
-		led_timeout(req, resp, 0);
+		led_timeout(req, resp, led_board);
 		break;
 
 	case LED_CMD_GET_BOARD_STATUS:
@@ -249,7 +274,7 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	}
 }
 
-void process_cdc_port(int port, uint8_t* jvs_buff, uint32_t* offset_ptr)
+void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 {
 	uint32_t offset = *offset_ptr;
 	if (const uint32_t max_remaining = MAX_PACKET - offset; max_remaining <= 0)
@@ -258,6 +283,7 @@ void process_cdc_port(int port, uint8_t* jvs_buff, uint32_t* offset_ptr)
 	}
 
 	uint32_t count = tud_cdc_n_read(port, jvs_buff + offset, MAX_PACKET - offset);
+
 	if (count == 0)
 	{
 		return;
@@ -294,7 +320,7 @@ void process_cdc_port(int port, uint8_t* jvs_buff, uint32_t* offset_ptr)
 		}
 	}
 
-	handle_led_command(&req, &resp, offset);
+	handle_led_command(&req, &resp, port);
 
 	if (resp.len != 0)
 	{
@@ -303,26 +329,21 @@ void process_cdc_port(int port, uint8_t* jvs_buff, uint32_t* offset_ptr)
 
 	if (SUCCEEDED(result))
 	{
-		if (!setting_disable_resp_1 ||
+		if ((port == 0 && !setting_disable_resp_1) ||
+			(port == 1 && !setting_disable_resp_2) ||
 			req.cmd == LED_CMD_DISABLE_RESPONSE ||
 			req.cmd == LED_CMD_GET_BOARD_INFO ||
 			req.cmd == LED_CMD_GET_FIRM_SUM ||
 			req.cmd == LED_CMD_GET_PROTOCOL_VER)
 		{
-			printf("Response length (port %d): %u\nPayload: ", port, (unsigned)out_len);
-			for (uint32_t i = 0; i < out_len; ++i)
-			{
-				printf("%02X ", out_buffer[i]);
-			}
-			printf("\n");
 			tud_cdc_n_write(port, out_buffer, out_len);
 			tud_cdc_n_write_flush(port);
 		}
-		else
-		{
-			printf("Error writing packet (port %d): 0x%08lX\n", port, static_cast<unsigned long>(result));
-		}
 
+		*offset_ptr = 0;
+	}
+	else
+	{
 		*offset_ptr = 0;
 	}
 }
@@ -349,6 +370,11 @@ void process_cdc_port(int port, uint8_t* jvs_buff, uint32_t* offset_ptr)
 	}
 }
 
+void led_test()
+{
+	led_strip::fill_strip(0);
+}
+
 void init()
 {
 	sleep_ms(50);
@@ -362,5 +388,6 @@ void init()
 int main()
 {
 	init();
+	// led_test();
 	core0_loop();
 }

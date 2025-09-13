@@ -10,17 +10,13 @@ namespace led_strip
 
     void reset(const int strip)
     {
-        if (strip == 0)
-        {
-            led_strip_1.clear();
-        }
-        else
-        {
-            led_strip_2.clear();
-        }
+        auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
+
+        target.clear();
+        target.show();
     }
 
-    void set_pixels(const std::array<led, MAX_LEDS>& payload, int strip)
+    void set_pixels(const std::array<color, MAX_LEDS>& payload, int strip)
     {
         auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
         for (int i = 0; i < MAX_LEDS; ++i)
@@ -28,5 +24,19 @@ namespace led_strip
         target.show();
     }
 
+    void set_pixel(int pixel, color led, int strip)
+    {        
+        auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
+        target.setPixelColor(pixel, PicoLed::RGB(led.r, led.g, led.b));
+        target.show();
+    }
 
+
+    void fill_strip(int strip)
+    {
+        auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
+        target.fill(PicoLed::RGB(255, 0, 255));
+        target.setBrightness(100);
+        target.show();
+    }
 }
