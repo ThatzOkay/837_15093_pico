@@ -183,10 +183,6 @@ void led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 void led_set_fade(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
-	// TODO fade effects
-
-	printf("board: %u \n", led_board);
-
 	if (led_board == 0)
 	{
 		fade_mode_1 = FADE_MODE_DECREASE;
@@ -197,7 +193,17 @@ void led_set_fade(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 void led_set_fade_pattern(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
-	printf("Fade pattern \n");
+	uint8_t depth = req->payload[0];
+	uint8_t cycle = req->payload[1];
+
+	if (led_board == 0) 
+	{
+		fade_mode_1 = FADE_MODE_DECREASE;
+		fade_value_1 = 255;
+
+		fade_timer_1 = depth;
+		fade_modifier_1 = cycle;
+	}
 }
 
 void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
@@ -252,8 +258,6 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	resp->status = 1;
 	resp->report = 1;
 
-	printf("CMD %02X \n", req->cmd);
-
 	switch (req->cmd)
 	{
 	case LED_CMD_GET_BOARD_INFO:
@@ -276,25 +280,10 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 		led_reset(req, resp, led_board);
 		break;
 	case LED_CMD_SET_LED:
-		// printf("led payload: ");
-
-		// for (const unsigned char i : req->payload)
-		// {
-		// 	printf("%02X ", i);
-		// }
-		// printf("\n");
-
 		led_set(req, resp, led_board);
 		break;
 
 	case LED_CMD_SET_LED_FADE:
-		// printf("led fade payload: ");
-
-		// for (const unsigned char i : req->payload)
-		// {
-		// 	printf("%02X ", i);
-		// }
-		// printf("\n");
 		led_set_fade(req, resp, led_board);
 		break;
 
