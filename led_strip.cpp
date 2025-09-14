@@ -31,12 +31,18 @@ namespace led_strip
         target.show();
     }
 
-
     void fill_strip(int strip)
     {
         auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
         target.fill(PicoLed::RGB(255, 0, 255));
         target.setBrightness(100);
+        target.show();
+    }
+
+    void set_brightness(uint8_t brightness, int strip) 
+    {
+        auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
+        target.setBrightness(brightness);
         target.show();
     }
 }

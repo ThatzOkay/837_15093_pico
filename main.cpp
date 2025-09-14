@@ -11,8 +11,19 @@
 #include "hardware/timer.h"
 #include "pico/stdio.h"
 #include "pico/time.h"
+#include "pico/multicore.h"
 #include "config.h"
 
+#define FADE_TIMER_DEFAULT 80
+
+#define FADE_MODE_NONE 0
+#define FADE_MODE_DECREASE 1
+#define FADE_MODE_INCREASE 2
+
+static uint8_t fade_mode_1 = FADE_MODE_NONE;
+static uint8_t fade_timer_1 = FADE_TIMER_DEFAULT;
+static int16_t fade_value_1 = 255;
+static int16_t fade_modifier_1 = 1;
 static uint8_t settings_timeout1;
 static bool setting_disable_resp_1 = false;
 static uint8_t jvs_buf_1[MAX_PACKET];
@@ -101,70 +112,92 @@ void led_reset(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	if (led_board == 0)
 	{
 		setting_disable_resp_1 = false;
+		fade_mode_1 = FADE_MODE_NONE;
+		fade_timer_1 = FADE_TIMER_DEFAULT;
+		fade_modifier_1 = 1;
+		fade_value_1 = 255;
 	}
 	else
 	{
 		setting_disable_resp_2 = false;
 	}
-	// setting_led_count = JVS_MAX_LEDS;
-	// fade_mode = FADE_MODE_NONE;
-	// fade_timer = FADE_TIMER_DEFAULT;
-	// fade_timer_max = FADE_TIMER_DEFAULT;
-	// fade_modifier = 1;
-	// fade_value = 255;
 
 	led_strip::reset(led_board);
 }
 
-void led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
+void internal_led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
-    size_t offset = 0;
-    switch (led_board)
-    {
-    case 0:
-        offset = LED_STRIP_01_OFFSET;
-        break;
-    case 1:
-        offset = LED_STRIP_02_OFFSET;
-        break;
-    default:
-        offset = 0;
-        break;
-    }
+	size_t offset = 0;
+	switch (led_board)
+	{
+	case 0:
+		offset = LED_STRIP_01_OFFSET;
+		break;
+	case 1:
+		offset = LED_STRIP_02_OFFSET;
+		break;
+	default:
+		offset = 0;
+		break;
+	}
 
-    size_t num_leds = req->len / 3;
+	size_t num_leds = req->len / 3;
 
-    if (num_leds > MAX_LEDS)
-        num_leds = MAX_LEDS;
+	if (num_leds > MAX_LEDS)
+		num_leds = MAX_LEDS;
 
-    std::array<color, MAX_LEDS> leds{};
+	std::array<color, MAX_LEDS> leds{};
 
 	if (offset > 0)
-    {
-        for (size_t i = 0; i < offset; ++i)
-        {
-            leds[i].r = 0;
-            leds[i].g = 0;
-            leds[i].b = 0;
-        }
-    }
+	{
+		for (size_t i = 0; i < offset; ++i)
+		{
+			leds[i].r = 0;
+			leds[i].g = 0;
+			leds[i].b = 0;
+		}
+	}
 
-    for (size_t i = 0; i < num_leds; ++i)
-    {
-        leds[i].r = req->payload[(i + offset) * 3 + 0];
-        leds[i].g = req->payload[(i + offset) * 3 + 1];
-        leds[i].b = req->payload[(i + offset) * 3 + 2];
-    }
+	for (size_t i = 0; i < num_leds; ++i)
+	{
+		leds[i].r = req->payload[(i + offset) * 3 + 0];
+		leds[i].g = req->payload[(i + offset) * 3 + 1];
+		leds[i].b = req->payload[(i + offset) * 3 + 2];
+	}
 
-    led_strip::set_pixels(leds, led_board);
+	led_strip::set_pixels(leds, led_board);
+}
+
+void led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
+{
+	if (led_board == 0)
+	{
+		fade_mode_1 = FADE_MODE_NONE;
+		fade_timer_1 = FADE_TIMER_DEFAULT;
+		fade_modifier_1 = 1;
+		fade_value_1 = 255;
+	}
+
+	internal_led_set(req, resp, led_board);
 }
 
 void led_set_fade(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
+	// TODO fade effects
+
+	printf("board: %u \n", led_board);
+
+	if (led_board == 0)
+	{
+		fade_mode_1 = FADE_MODE_DECREASE;
+		fade_value_1 = 255;
+	}
+	internal_led_set(req, resp, led_board);
 }
 
 void led_set_fade_pattern(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 {
+	printf("Fade pattern \n");
 }
 
 void led_disable_response(jvs_req_any *req, jvs_resp_any *resp, int led_board)
@@ -219,6 +252,8 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	resp->status = 1;
 	resp->report = 1;
 
+	printf("CMD %02X \n", req->cmd);
+
 	switch (req->cmd)
 	{
 	case LED_CMD_GET_BOARD_INFO:
@@ -253,6 +288,13 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 		break;
 
 	case LED_CMD_SET_LED_FADE:
+		// printf("led fade payload: ");
+
+		// for (const unsigned char i : req->payload)
+		// {
+		// 	printf("%02X ", i);
+		// }
+		// printf("\n");
 		led_set_fade(req, resp, led_board);
 		break;
 
@@ -348,6 +390,46 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 	}
 }
 
+[[noreturn]] static void core1_loop()
+{
+	while (true)
+	{
+		if (fade_mode_1 != 0)
+		{
+			printf("fading");
+			if (fade_timer_1 > 0)
+			{
+				fade_timer_1 -= DELAY;
+			}
+			if (fade_timer_1 <= 0)
+			{
+				if (fade_mode_1 == FADE_MODE_DECREASE)
+				{
+					fade_value_1 -= fade_modifier_1;
+					if (fade_value_1 <= 0)
+					{
+						fade_value_1 = 0;
+						fade_mode_1 = FADE_MODE_INCREASE;
+					}
+				}
+				else if (fade_mode_1 == FADE_MODE_INCREASE)
+				{
+					fade_value_1 += fade_modifier_1;
+					if (fade_value_1 >= 255)
+					{
+						fade_value_1 = 255;
+						fade_mode_1 = FADE_MODE_DECREASE;
+					}
+				}
+
+				printf("fade set");
+				led_strip::set_brightness(fade_value_1, 0);
+			}
+		}
+		sleep_us(10);
+	}
+}
+
 [[noreturn]] static void core0_loop()
 {
 	uint64_t next_frame = time_us_64();
@@ -389,5 +471,6 @@ int main()
 {
 	init();
 	// led_test();
+	multicore_launch_core1(core1_loop);
 	core0_loop();
 }
