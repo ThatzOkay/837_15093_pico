@@ -1,1 +1,3 @@
 Credits to https://github.com/akechi-haruka/SuperMonkeyLEDs for the jvs parsing and led commands stuff.
+Tested to work in Chunithm, ONGEKI and APM3.
+In config.h you can setup a per baord offset for example if you jsut want the air leds for Chunithm.
