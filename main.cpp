@@ -22,7 +22,7 @@
 
 static uint8_t fade_mode_1 = FADE_MODE_NONE;
 static uint8_t fade_timer_1 = FADE_TIMER_DEFAULT;
-static int16_t fade_value_1 = 255;
+static int16_t fade_value_1 = 200;
 static int16_t fade_modifier_1 = 1;
 static uint8_t settings_timeout1;
 static bool setting_disable_resp_1 = false;
@@ -166,6 +166,7 @@ void internal_led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	}
 
 	led_strip::set_pixels(leds, led_board);
+	led_strip::set_brightness(200, led_board);
 }
 
 void led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
@@ -186,7 +187,7 @@ void led_set_fade(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	if (led_board == 0)
 	{
 		fade_mode_1 = FADE_MODE_DECREASE;
-		fade_value_1 = 255;
+		fade_value_1 = 200;
 	}
 	internal_led_set(req, resp, led_board);
 }
