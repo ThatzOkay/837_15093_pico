@@ -5,8 +5,8 @@
 
 namespace led_strip
 {
-    auto led_strip_1 = PicoLed::addLeds<PicoLed::WS2812B>(pio1, 1, LED_STRIP_01, 64, PicoLed::FORMAT_RGB);
-    auto led_strip_2 = PicoLed::addLeds<PicoLed::WS2812B>(pio1 , 2, LED_STRIP_02, 64, PicoLed::FORMAT_RGB);
+    auto led_strip_1 = PicoLed::addLeds<PicoLed::WS2812B>(pio1, 1, LED_STRIP_01, 64, FORMAT);
+    auto led_strip_2 = PicoLed::addLeds<PicoLed::WS2812B>(pio1 , 2, LED_STRIP_02, 64, FORMAT);
 
     void reset(const int strip)
     {
