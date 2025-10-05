@@ -1,3 +1,5 @@
+# Duel 15093 LED Board emulator.
+
 Credits to [SuperMonkeyLeds](https://github.com/akechi-haruka/SuperMonkeyLEDs) for the jvs parsing and led commands stuff.
 And to [Chu Pico](https://github.com/whowechina/chu_pico) for the base main.cpp inspiration and usb hid stuff
 Tested to work in Chunithm, ONGEKI and APM3.
