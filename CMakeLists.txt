@@ -41,8 +41,6 @@ function(make_firmware board board_def)
 
     target_compile_definitions(${board} PUBLIC ${board_def})
 
-    pico_generate_pio_header(${board} ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio)
-
     pico_add_extra_outputs(${board})
 
     add_custom_command(TARGET ${board} POST_BUILD

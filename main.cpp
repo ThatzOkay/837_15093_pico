@@ -148,14 +148,11 @@ void internal_led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 
 	std::array<color, MAX_LEDS> leds{};
 
-	if (offset > 0)
+	for (size_t i = 0; i < MAX_LEDS; ++i)
 	{
-		for (size_t i = 0; i < offset; ++i)
-		{
-			leds[i].r = 0;
-			leds[i].g = 0;
-			leds[i].b = 0;
-		}
+		leds[i].r = 0;
+		leds[i].g = 0;
+		leds[i].b = 0;
 	}
 
 	for (size_t i = 0; i < num_leds; ++i)
@@ -197,7 +194,7 @@ void led_set_fade_pattern(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	uint8_t depth = req->payload[0];
 	uint8_t cycle = req->payload[1];
 
-	if (led_board == 0) 
+	if (led_board == 0)
 	{
 		fade_mode_1 = FADE_MODE_DECREASE;
 		fade_value_1 = 255;
