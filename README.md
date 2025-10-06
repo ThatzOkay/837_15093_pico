@@ -10,3 +10,5 @@ It exposes itself as 2 serial interfaces.
 
 Demo:
 <img src="https://github.com/ThatzOkay/837_15093_pico/raw/main/Demo.gif" height="100px">
+
+Default LED pins are pico pin 15 / 16.
