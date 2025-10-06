@@ -42,8 +42,8 @@ tusb_desc_device_t const desc_device =
   .bDeviceProtocol    = MISC_PROTOCOL_IAD,
   .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
 
-  .idVendor           = 0x4F6B,
-  .idProduct          = 0x4000,
+  .idVendor           = 0x0CA3,
+  .idProduct          = 0x0012,
   .bcdDevice          = 0x0100,
 
   .iManufacturer      = 0x01,
@@ -121,7 +121,7 @@ char const *string_desc_arr[] =
 {
   (const char[]) { 0x09, 0x04 }, // 0: is supported language is English (0x0409)
   "SEGA",                        // 1: Manufacturer
-  "Duel led board Device",       // 2: Product
+  "837-15067-02 Port",       // 2: Product
   NULL,                          // 3: Serials will use unique ID if possible
   "LED board 0",                 // 4: CDC 0 Interface
   "LED board 1",                 // 5: CDC 1 Interface
