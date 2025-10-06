@@ -5,22 +5,18 @@
 
 namespace led_strip
 {
-    auto led_strip_1 = PicoLed::addLeds<PicoLed::WS2812B>(pio1, 1, LED_STRIP_01, 64, PicoLed::FORMAT_GRB);
-    auto led_strip_2 = PicoLed::addLeds<PicoLed::WS2812B>(pio1 , 2, LED_STRIP_02, 64, PicoLed::FORMAT_GRB);
+    auto led_strip_1 = PicoLed::addLeds<PicoLed::WS2812B>(pio1, 1, LED_STRIP_01, 64, FORMAT);
+    auto led_strip_2 = PicoLed::addLeds<PicoLed::WS2812B>(pio1 , 2, LED_STRIP_02, 64, FORMAT);
 
     void reset(const int strip)
     {
-        if (strip == 0)
-        {
-            led_strip_1.clear();
-        }
-        else
-        {
-            led_strip_2.clear();
-        }
+        auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
+
+        target.clear();
+        target.show();
     }
 
-    void set_pixels(const std::array<led, MAX_LEDS>& payload, int strip)
+    void set_pixels(const std::array<color, MAX_LEDS>& payload, int strip)
     {
         auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
         for (int i = 0; i < MAX_LEDS; ++i)
@@ -28,5 +24,25 @@ namespace led_strip
         target.show();
     }
 
+    void set_pixel(int pixel, color led, int strip)
+    {        
+        auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
+        target.setPixelColor(pixel, PicoLed::RGB(led.r, led.g, led.b));
+        target.show();
+    }
 
+    void fill_strip(int strip)
+    {
+        auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
+        target.fill(PicoLed::RGB(255, 0, 255));
+        target.setBrightness(100);
+        target.show();
+    }
+
+    void set_brightness(uint8_t brightness, int strip) 
+    {
+        auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
+        target.setBrightness(brightness);
+        target.show();
+    }
 }
