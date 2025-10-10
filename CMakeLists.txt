@@ -33,7 +33,7 @@ link_libraries(pico_multicore pico_stdlib
 
 function(make_firmware board board_def)
     add_executable(${board}
-        main.cpp usb_descriptors.cpp jvs.cpp led_strip.cpp)
+        main.cpp usb_descriptors.cpp jvs.cpp led_strip.cpp log.cpp)
 
     add_subdirectory(pico_led)
 

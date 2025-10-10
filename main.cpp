@@ -13,6 +13,8 @@
 #include "pico/time.h"
 #include "pico/multicore.h"
 #include "config.h"
+#include "log.h"
+#include "hardware/uart.h"
 
 #define FADE_TIMER_DEFAULT 80
 
@@ -40,12 +42,12 @@ static std::string board_name = "15093-06";
 
 void log_response(const jvs_resp_any *resp)
 {
-	printf("Response length: %d\nPayload: ", resp->len);
+	log("Response length: %d\nPayload: ", resp->len);
 	for (int i = 0; i < resp->len; i++)
 	{
-		printf("%02X ", resp->payload[i]);
+		log("%02X ", resp->payload[i]);
 	}
-	printf("\n");
+	log("\n");
 }
 
 bool is_all_zero(const void *buf, size_t len)
@@ -298,7 +300,7 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 		break;
 
 	default:
-		printf("Unknown command: 0x%02X\n", req->cmd);
+		log("Unknown command: 0x%02X\n", req->cmd);
 		break;
 	}
 }
@@ -332,7 +334,7 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 	if (FAILED(result))
 	{
 		memset(jvs_buff, 0, MAX_PACKET);
-		printf("JVS Failed (port %d): HRESULT=0x%08lX\n", port, static_cast<unsigned long>(result));
+		log("JVS Failed (port %d): HRESULT=0x%08lX\n", port, static_cast<unsigned long>(result));
 
 		result = jvs_write_failure(result, 25, &req, out_buffer, &out_len);
 		if (result == S_OK)
@@ -377,13 +379,18 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 	}
 }
 
+void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_ptr)
+{
+
+}
+
 [[noreturn]] static void core1_loop()
 {
 	while (true)
 	{
 		if (fade_mode_1 != 0)
 		{
-			printf("fading");
+			log("fading");
 			if (fade_timer_1 > 0)
 			{
 				fade_timer_1 -= DELAY;
@@ -409,7 +416,7 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 					}
 				}
 
-				printf("fade set");
+				log("fade set");
 				led_strip::set_brightness(fade_value_1, 0);
 			}
 		}
@@ -422,6 +429,7 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 	uint64_t next_frame = time_us_64();
 	while (true)
 	{
+#if ENABLE_UART == 0
 		tud_task();
 
 		if (tud_cdc_n_available(0))
@@ -433,15 +441,30 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 		{
 			process_cdc_port(1, jvs_buf_2, &offset_2);
 		}
+#else
+		process_uart_port(UART1_ID, jvs_buf_2, &offset_2);
+#endif
 
 		next_frame = time_us_64() + 1000;
 		sleep_until(next_frame);
 	}
 }
 
-void led_test()
+void init_uart()
 {
-	led_strip::fill_strip(0);
+	// uart_init(UART0_ID, BAUD_RATE);
+	// gpio_set_function(UART0_TX_PIN, GPIO_FUNC_UART);
+	// gpio_set_function(UART0_RX_PIN, GPIO_FUNC_UART);
+	// uart_set_hw_flow(UART0_ID, false, false);
+	// uart_set_format(UART0_ID, 8, 1, UART_PARITY_NONE);
+	// uart_set_fifo_enabled(UART0_ID, false);
+
+	uart_init(UART1_ID, BAUD_RATE);
+	gpio_set_function(UART1_TX_PIN, GPIO_FUNC_UART);
+	gpio_set_function(UART1_RX_PIN, GPIO_FUNC_UART);
+	uart_set_hw_flow(UART1_ID, false, false);
+	uart_set_format(UART1_ID, 8, 1, UART_PARITY_NONE);
+	uart_set_fifo_enabled(UART1_ID, false);
 }
 
 void init()
@@ -450,8 +473,15 @@ void init()
 	set_sys_clock_khz(150000, true);
 	board_init();
 
+#if ENABLE_UART == 0
 	tusb_init();
+#endif
 	stdio_init_all();
+
+#if ENABLE_UART == 1
+	log("UART mode enabled, USB disabled\n");
+	init_uart();
+#endif
 }
 
 int main()

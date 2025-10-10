@@ -1,5 +1,6 @@
 #include "hresult.h"
 #include "jvs.h"
+#include "log.h"
 
 #include <cstddef>
 #include <cstring>
@@ -13,17 +14,17 @@ HRESULT jvs_encode(const uint8_t *in, uint32_t inlen, uint8_t *out, uint32_t *ou
 {
     if (in == nullptr || out == nullptr || outlen == nullptr)
     {
-        printf("All null");
+        log("All null");
         return E_HANDLE;
     }
     if (inlen < 2)
     {
-        printf("Invalid args \n");
+        log("Invalid args \n");
         return E_INVALIDARG;
     }
     if (*outlen < inlen + 2)
     {
-        printf("No good buffer \n");
+        log("No good buffer \n");
         return E_NOT_SUFFICIENT_BUFFER;
     }
 
@@ -65,25 +66,25 @@ HRESULT jvs_process_packet(struct jvs_req_any *req, uint8_t *buff, uint32_t len)
 
     if (buff[0] != 0xE0)
     {
-        printf("Raw jvs_process_packet read buff:");
+        log("Raw jvs_process_packet read buff:");
         for (int i = 0; i < sizeof(buff); i++)
         {
-            printf("%02X ", buff[i]);
+            log("%02X ", buff[i]);
         }
-        printf("\n");
-        printf("JVS: Sync error: 0x%02X\n", buff[0]);
+        log("\n");
+        log("JVS: Sync error: 0x%02X\n", buff[0]);
         return HRESULT_FROM_WIN32(ERROR_DATA_CHECKSUM_ERROR);
     }
 
     if (len < 4)
     {
-        printf("Raw jvs_process_packet read buff:");
+        log("Raw jvs_process_packet read buff:");
         for (int i = 0; i < sizeof(buff); i++)
         {
-            printf("%02X ", buff[i]);
+            log("%02X ", buff[i]);
         }
-        printf("\n");
-        printf("JVS: len error: 0x%02X\n", buff[0]);
+        log("\n");
+        log("JVS: len error: 0x%02X\n", buff[0]);
         return E_FAIL;
     }
 
@@ -91,13 +92,13 @@ HRESULT jvs_process_packet(struct jvs_req_any *req, uint8_t *buff, uint32_t len)
 
     if (const uint32_t total_len = static_cast<uint32_t>(payload_len + 4); len < total_len)
     {
-        printf("Raw jvs_process_packet read buff:");
+        log("Raw jvs_process_packet read buff:");
         for (int i = 0; i < sizeof(buff); i++)
         {
-            printf("%02X ", buff[i]);
+            log("%02X ", buff[i]);
         }
-        printf("\n");
-        printf("JVS: total len error: 0x%02X\n", buff[0]);
+        log("\n");
+        log("JVS: total len error: 0x%02X\n", buff[0]);
         return E_FAIL;
     }
 
@@ -122,7 +123,7 @@ HRESULT jvs_process_packet(struct jvs_req_any *req, uint8_t *buff, uint32_t len)
         }
         else if (byte == 0xE0)
         {
-            printf("JVS: Unexpected sync byte inside packet at pos %d\n", i);
+            log("JVS: Unexpected sync byte inside packet at pos %d\n", i);
             return HRESULT_FROM_WIN32(ERROR_DATA_CHECKSUM_ERROR);
         }
 
@@ -138,7 +139,7 @@ HRESULT jvs_process_packet(struct jvs_req_any *req, uint8_t *buff, uint32_t len)
 
     if (checksum != received_checksum)
     {
-        printf("JVS: Checksum mismatch: expected %02X, got %02X\n", checksum, received_checksum);
+        log("JVS: Checksum mismatch: expected %02X, got %02X\n", checksum, received_checksum);
         return HRESULT_FROM_WIN32(ERROR_DATA_CHECKSUM_ERROR);
     }
 
