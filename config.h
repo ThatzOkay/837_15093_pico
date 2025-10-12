@@ -22,6 +22,7 @@
 #define UART1_RX_PIN 5
 
 #define BAUD_RATE 115200
+#define UART_READ_TIMEOUT_US 50000  
 
 #define ENABLE_DEBUG 1
 #define ENABLE_LED_TEST 1
