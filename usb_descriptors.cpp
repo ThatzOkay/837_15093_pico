@@ -222,10 +222,10 @@ char const* string_desc_arr [] =
   (const char[]) { 0x09, 0x04 }, // 0: is supported language is English (0x0409)
   "SEGA",                        // 1: Manufacturer
   "837-15067-02 Port",           // 2: Product
-  NULL,                          // 3: Serials, should use chip ID
+  NULL,                          // 3: Serials will use unique ID if possible
   "LED board 0",                 // 4: CDC 0 Interface
   "LED board 1",                 // 4: CDC 1 Interface
-  "CLI",                 // 4: CDC 2 Interface
+  "CLI",                         // 4: CDC 2 Interface
 };
 
 static uint16_t _desc_str[32];
