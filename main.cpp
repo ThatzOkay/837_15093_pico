@@ -14,6 +14,7 @@
 #include "pico/multicore.h"
 #include "config.h"
 #include "log.h"
+#include "hardware/uart.h"
 
 #define FADE_TIMER_DEFAULT 80
 
@@ -44,7 +45,7 @@ void log_response(const jvs_resp_any *resp)
 	log("Response length: %d\nPayload: ", resp->len);
 	for (int i = 0; i < resp->len; i++)
 	{
-		printf("%02X ", resp->payload[i]);
+		log("%02X ", resp->payload[i]);
 	}
 	log("\n");
 }
@@ -378,6 +379,11 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 	}
 }
 
+void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_ptr)
+{
+
+}
+
 [[noreturn]] static void core1_loop()
 {
 	while (true)
@@ -423,6 +429,7 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 	uint64_t next_frame = time_us_64();
 	while (true)
 	{
+#if ENABLE_UART == 0
 		tud_task();
 
 		if (tud_cdc_n_available(0))
@@ -434,6 +441,9 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 		{
 			process_cdc_port(1, jvs_buf_2, &offset_2);
 		}
+#else
+		process_uart_port(UART1_ID, jvs_buf_2, &offset_2);
+#endif
 
 		next_frame = time_us_64() + 1000;
 		sleep_until(next_frame);
@@ -446,14 +456,38 @@ void led_test()
 	led_strip::fill_strip(1);
 }
 
+void init_uart()
+{
+	// uart_init(UART0_ID, BAUD_RATE);
+	// gpio_set_function(UART0_TX_PIN, GPIO_FUNC_UART);
+	// gpio_set_function(UART0_RX_PIN, GPIO_FUNC_UART);
+	// uart_set_hw_flow(UART0_ID, false, false);
+	// uart_set_format(UART0_ID, 8, 1, UART_PARITY_NONE);
+	// uart_set_fifo_enabled(UART0_ID, false);
+
+	uart_init(UART1_ID, BAUD_RATE);
+	gpio_set_function(UART1_TX_PIN, GPIO_FUNC_UART);
+	gpio_set_function(UART1_RX_PIN, GPIO_FUNC_UART);
+	uart_set_hw_flow(UART1_ID, false, false);
+	uart_set_format(UART1_ID, 8, 1, UART_PARITY_NONE);
+	uart_set_fifo_enabled(UART1_ID, false);
+}
+
 void init()
 {
 	sleep_ms(50);
 	set_sys_clock_khz(150000, true);
 	board_init();
 
+#if ENABLE_UART == 0
 	tusb_init();
+#endif
 	stdio_init_all();
+
+#if ENABLE_UART == 1
+	log("UART mode enabled, USB disabled\n");
+	init_uart();
+#endif
 }
 
 int main()

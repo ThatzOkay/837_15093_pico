@@ -1,5 +1,6 @@
 #include "hresult.h"
 #include "jvs.h"
+#include "log.h"
 
 #include <cstddef>
 #include <cstring>
@@ -95,7 +96,7 @@ HRESULT jvs_process_packet(struct jvs_req_any *req, uint8_t *buff, uint32_t len)
         log("Raw jvs_process_packet read buff:");
         for (int i = 0; i < sizeof(buff); i++)
         {
-            printf("%02X ", buff[i]);
+            log("%02X ", buff[i]);
         }
         log("\n");
         log("JVS: total len error: 0x%02X\n", buff[0]);
