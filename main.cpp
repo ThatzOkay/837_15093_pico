@@ -13,6 +13,7 @@
 #include "pico/time.h"
 #include "pico/multicore.h"
 #include "config.h"
+#include "log.h"
 
 #define FADE_TIMER_DEFAULT 80
 
@@ -40,12 +41,12 @@ static std::string board_name = "15093-06";
 
 void log_response(const jvs_resp_any *resp)
 {
-	printf("Response length: %d\nPayload: ", resp->len);
+	log("Response length: %d\nPayload: ", resp->len);
 	for (int i = 0; i < resp->len; i++)
 	{
 		printf("%02X ", resp->payload[i]);
 	}
-	printf("\n");
+	log("\n");
 }
 
 bool is_all_zero(const void *buf, size_t len)
@@ -298,7 +299,7 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 		break;
 
 	default:
-		printf("Unknown command: 0x%02X\n", req->cmd);
+		log("Unknown command: 0x%02X\n", req->cmd);
 		break;
 	}
 }
@@ -332,7 +333,7 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 	if (FAILED(result))
 	{
 		memset(jvs_buff, 0, MAX_PACKET);
-		printf("JVS Failed (port %d): HRESULT=0x%08lX\n", port, static_cast<unsigned long>(result));
+		log("JVS Failed (port %d): HRESULT=0x%08lX\n", port, static_cast<unsigned long>(result));
 
 		result = jvs_write_failure(result, 25, &req, out_buffer, &out_len);
 		if (result == S_OK)
@@ -383,7 +384,7 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 	{
 		if (fade_mode_1 != 0)
 		{
-			printf("fading");
+			log("fading");
 			if (fade_timer_1 > 0)
 			{
 				fade_timer_1 -= DELAY;
@@ -409,7 +410,7 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 					}
 				}
 
-				printf("fade set");
+				log("fade set");
 				led_strip::set_brightness(fade_value_1, 0);
 			}
 		}
@@ -442,6 +443,7 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 void led_test()
 {
 	led_strip::fill_strip(0);
+	led_strip::fill_strip(1);
 }
 
 void init()
@@ -457,6 +459,9 @@ void init()
 int main()
 {
 	init();
+	#if ENABLE_LED_TEST
+	led_test();
+	#endif
 	multicore_launch_core1(core1_loop);
 	core0_loop();
 }

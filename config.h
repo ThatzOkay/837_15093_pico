@@ -9,3 +9,6 @@
 #define FORMAT PicoLed::FORMAT_RGB
 
 #define MAX_PACKET 256
+
+#define ENABLE_DEBUG 1
+#define ENABLE_LED_TEST 1
