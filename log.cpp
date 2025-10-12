@@ -1,6 +1,8 @@
 #include "log.h"
 #include <cstdarg>
 #include <cstdio>
+#include "pico/stdio.h"
+#include "tusb.h"
 #include "config.h"
 
 void log(const char *format, ...)
