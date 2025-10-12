@@ -42,6 +42,10 @@ function(make_firmware board board_def)
     target_compile_definitions(${board} PUBLIC ${board_def})
 
     pico_add_extra_outputs(${board})
+    
+    pico_enable_stdio_usb(${board} 0)
+    pico_enable_stdio_uart(${board} 0)
+
 
     add_custom_command(TARGET ${board} POST_BUILD
         COMMAND arm-none-eabi-size ${board}.elf)

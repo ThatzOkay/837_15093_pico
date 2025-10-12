@@ -10,6 +10,8 @@
 #define DELAY 5
 #define FORMAT PicoLed::FORMAT_RGB
 
+#define MAX_PACKET 256
+
 #define ENABLE_UART 1
 #define UART0_ID uart0
 #define UART0_TX_PIN 0
@@ -21,6 +23,5 @@
 
 #define BAUD_RATE 115200
 
-#define DEBUG_LOG 1
-
-#define MAX_PACKET 256
+#define ENABLE_DEBUG 1
+#define ENABLE_LED_TEST 1

@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstring>
 #include <cstdio>
+#include "log.h"
 
 #define COMM_BUF_SIZE 255
 #define TRY_SALVAGE_COMM_SYNC 1

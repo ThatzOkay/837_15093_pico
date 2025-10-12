@@ -1,19 +1,24 @@
 #include "log.h"
 #include <cstdarg>
 #include <cstdio>
+#include "pico/stdio.h"
+#include "tusb.h"
+#include "config.h"
 
 void log(const char *format, ...)
 {
-#if DEBUG_LOG == 1
-    return;
-#else
-    // #if ENABLE_UART == 1
-    // // TODO uart log maybe through tiny usb cdc 0
-    // #else
-    va_list argptr;
-    va_start(argptr, format);
-    vprintf(format, argptr);
-    va_end(argptr);
-// #endif
+#if ENABLE_DEBUG
+    uint8_t out_buffer[MAX_PACKET] = {};
+
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf((char*)out_buffer, sizeof(out_buffer), format, args);
+    va_end(args);
+
+    if (len > 0)
+    {
+        tud_cdc_n_write(2, out_buffer, (len < sizeof(out_buffer)) ? len : sizeof(out_buffer));
+        tud_cdc_n_write_flush(2);
+    }
 #endif
 }

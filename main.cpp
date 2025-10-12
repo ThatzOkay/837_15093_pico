@@ -1,5 +1,5 @@
 #include <string>
-
+#include "tusb.h"
 #include "hresult.h"
 #include "jvs.h"
 #include "led.h"
@@ -450,6 +450,12 @@ void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_pt
 	}
 }
 
+void led_test()
+{
+	led_strip::fill_strip(0);
+	led_strip::fill_strip(1);
+}
+
 void init_uart()
 {
 	// uart_init(UART0_ID, BAUD_RATE);
@@ -487,6 +493,9 @@ void init()
 int main()
 {
 	init();
+	#if ENABLE_LED_TEST
+	led_test();
+	#endif
 	multicore_launch_core1(core1_loop);
 	core0_loop();
 }
