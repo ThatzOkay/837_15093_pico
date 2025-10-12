@@ -381,7 +381,12 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 
 void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 {
-
+	if (uart_is_readable(port))
+	{
+		uint8_t ch = uart_getc(port);
+		log("Incomming: ", ch);
+		uart_putc(port, ch);
+	}
 }
 
 [[noreturn]] static void core1_loop()
@@ -429,7 +434,6 @@ void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_pt
 	uint64_t next_frame = time_us_64();
 	while (true)
 	{
-#if ENABLE_UART == 0
 		tud_task();
 
 		if (tud_cdc_n_available(0))
@@ -441,9 +445,8 @@ void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_pt
 		{
 			process_cdc_port(1, jvs_buf_2, &offset_2);
 		}
-#else
+		process_uart_port(UART0_ID, jvs_buf_1, &offset_1);
 		process_uart_port(UART1_ID, jvs_buf_2, &offset_2);
-#endif
 
 		next_frame = time_us_64() + 1000;
 		sleep_until(next_frame);
@@ -458,12 +461,12 @@ void led_test()
 
 void init_uart()
 {
-	// uart_init(UART0_ID, BAUD_RATE);
-	// gpio_set_function(UART0_TX_PIN, GPIO_FUNC_UART);
-	// gpio_set_function(UART0_RX_PIN, GPIO_FUNC_UART);
-	// uart_set_hw_flow(UART0_ID, false, false);
-	// uart_set_format(UART0_ID, 8, 1, UART_PARITY_NONE);
-	// uart_set_fifo_enabled(UART0_ID, false);
+	uart_init(UART0_ID, BAUD_RATE);
+	gpio_set_function(UART0_TX_PIN, GPIO_FUNC_UART);
+	gpio_set_function(UART0_RX_PIN, GPIO_FUNC_UART);
+	uart_set_hw_flow(UART0_ID, false, false);
+	uart_set_format(UART0_ID, 8, 1, UART_PARITY_NONE);
+	uart_set_fifo_enabled(UART0_ID, false);
 
 	uart_init(UART1_ID, BAUD_RATE);
 	gpio_set_function(UART1_TX_PIN, GPIO_FUNC_UART);
@@ -478,14 +481,11 @@ void init()
 	sleep_ms(50);
 	set_sys_clock_khz(150000, true);
 	board_init();
-
-#if ENABLE_UART == 0
 	tusb_init();
-#endif
 	stdio_init_all();
 
 #if ENABLE_UART == 1
-	log("UART mode enabled, USB disabled\n");
+	log("UART mode enabled\n");
 	init_uart();
 #endif
 }
@@ -493,9 +493,9 @@ void init()
 int main()
 {
 	init();
-	#if ENABLE_LED_TEST
+#if ENABLE_LED_TEST
 	led_test();
-	#endif
+#endif
 	multicore_launch_core1(core1_loop);
 	core0_loop();
 }
