@@ -40,6 +40,7 @@
     "files.associations": {
         "cstdint": "cpp",
         "cmath": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "string_view": "cpp"
     }
 }

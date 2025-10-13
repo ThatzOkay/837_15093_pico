@@ -392,7 +392,6 @@ static bool wait_for_readable(uart_inst_t *port, uint32_t timeout_us)
 
 bool read_jvs_packet(uart_inst_t *port, uint8_t *buf, uint32_t *len_out)
 {
-
 	int index = 0;
 
 	if (!uart_is_readable(port))
@@ -413,14 +412,22 @@ bool read_jvs_packet(uart_inst_t *port, uint8_t *buf, uint32_t *len_out)
 
 		if (absolute_time_diff_us(start, get_absolute_time()) > UART_READ_TIMEOUT_US)
 		{
-			log("UART Timeout reached \n");
+			// log("UART Timeout reached \n");
 			return false;
 		}
 	}
 
 	if (!wait_for_readable(port, UART_READ_TIMEOUT_US))
 		return false;
+	
+	// log("Sync byte found \n");
+
+	uint8_t src = uart_getc(port);
+	uint8_t dest = uart_getc(port);
 	uint8_t length = uart_getc(port);
+	
+	buf[index++] = src;
+	buf[index++] = dest;
 	buf[index++] = length;
 	for (int i = 0; i < length + 1; i++)
 	{
@@ -431,10 +438,10 @@ bool read_jvs_packet(uart_inst_t *port, uint8_t *buf, uint32_t *len_out)
 
 	*len_out = index;
 
-	log("Raw read buff:");
-	for (int i = 0; i < index; i++)
-		log(" %02X", buf[i]);
-	log("\n");
+	// log("Raw read buff:");
+	// for (int i = 0; i < index; i++)
+	// 	log(" %02X", buf[i]);
+	// log("\n");
 
 	return true;
 }
@@ -499,6 +506,8 @@ void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_pt
 {
 	while (true)
 	{
+		process_uart_port(UART0_ID, jvs_buf_1, &offset_1);
+		process_uart_port(UART1_ID, jvs_buf_2, &offset_2);
 		if (fade_mode_1 != 0)
 		{
 			log("fading");
@@ -551,8 +560,6 @@ void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_pt
 		{
 			process_cdc_port(1, jvs_buf_2, &offset_2);
 		}
-		process_uart_port(UART0_ID, jvs_buf_1, &offset_1);
-		process_uart_port(UART1_ID, jvs_buf_2, &offset_2);
 
 		next_frame = time_us_64() + 1000;
 		sleep_until(next_frame);
