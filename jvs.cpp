@@ -64,7 +64,7 @@ HRESULT jvs_process_packet(struct jvs_req_any *req, uint8_t *buff, uint32_t len)
 {
     if (!buff || len == 0) 
     {
-        log("Buffer not eq len");
+        debug_log("Buffer not eq len");
         return E_HANDLE;
     }
 

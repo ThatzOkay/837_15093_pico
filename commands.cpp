@@ -36,6 +36,7 @@ void disp_uart()
     cli_log("UART enabled: %u \n", led_cfg->uart.enable);
     cli_log("UART 0: Pin RX: %u, PIN TX: %u\n", led_cfg->uart.uart_0_pin.rx, led_cfg->uart.uart_0_pin.tx);
     cli_log("UART 1: Pin RX: %u, PIN TX: %u\n", led_cfg->uart.uart_1_pin.rx, led_cfg->uart.uart_1_pin.tx);
+    cli_log("Baud rate: %u\n", led_cfg->uart.baud_rate);
 }
 
 void handle_display(int argc, char* argv[])
@@ -236,7 +237,9 @@ void handle_fade(int argc, char* argv[])
 }
 
 auto uart_usage =
-    "Usage: uart enable<on|off> | <uart: 0|1>\n [tx|rx]\n";
+    "Usage: uart enable <on|off> | baud_rate <value> \n"
+    "       uart <uart: 0|1> [tx|rx] <value>\n"
+    "Supported baud rates: 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200\n";
 
 void handle_uart_cfg(int uart, int argc, char* argv[])
 {
@@ -273,6 +276,11 @@ void handle_uart_cfg(int uart, int argc, char* argv[])
     }
 }
 
+const int supported_baud_rates[] = {
+    1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200
+};
+constexpr  int num_supported_baud_rates = sizeof(supported_baud_rates)/sizeof(supported_baud_rates[0]);
+
 void handle_uart(int argc, char* argv[])
 {
     if (argc < 1)
@@ -281,7 +289,7 @@ void handle_uart(int argc, char* argv[])
         return;
     }
 
-    const char* commands[] = {"enable", "0", "1"};
+    const char* commands[] = {"enable", "0", "1", "baud_rate"};
     int match = cli_match_prefix(commands, count_of(commands), argv[0]);
 
     if (match < 0)
@@ -318,6 +326,33 @@ void handle_uart(int argc, char* argv[])
     case 2:
         handle_uart_cfg(1, argc, argv);
         break;
+    case 3:
+        {
+            const int value = cli_extract_non_neg_int(argv[1], 0);
+
+            bool valid = false;
+            for (int supported_baud_rate : supported_baud_rates)
+            {
+                if (value == supported_baud_rate)
+                {
+                    valid = true;
+                    break;
+                }
+            }
+
+            if (!valid)
+            {
+                cli_log("Invalid baud rate. Supported rates are: ");
+                for (int i = 0; i < num_supported_baud_rates; i++)
+                {
+                    cli_log("%d%s", supported_baud_rates[i], (i < num_supported_baud_rates - 1) ? ", " : "\n");
+                }
+                break;
+            }
+
+            led_cfg->uart.baud_rate = value;
+            break;
+        }
     default:
         cli_log(uart_usage);
         return;

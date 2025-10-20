@@ -9,6 +9,9 @@
 #include "PicoLedTarget.hpp"
 
 #define MAX_PACKET 256
+#define UART_READ_TIMEOUT_US 2000
+#define UART0_ID uart0
+#define UART1_ID uart1
 
 struct LedConfig {
     uint8_t pin;
