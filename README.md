@@ -1,7 +1,7 @@
 # Duel 15093 LED Board emulator.
 
 Credits to [SuperMonkeyLeds](https://github.com/akechi-haruka/SuperMonkeyLEDs) for the jvs parsing and led commands stuff.
-And to [Chu Pico](https://github.com/whowechina/chu_pico) for the base main.cpp inspiration, usb hid stuff and cli / save logic / base config
+And to [Whowechina](https://github.com/whowechina) for the base main.cpp inspiration, usb hid stuff and cli / save logic / base config
 Tested to work in Chunithm, ONGEKI and APM3.
 In config.h you can setup a per baord offset for example if you just want the air leds for Chunithm.
 Default led pins is 2 for strip 1 and pin 3 for strip 2.
@@ -13,6 +13,13 @@ Demo: <br/>
 
 Default LED pins are pico pin 15 / 16.
 
+## CLI
+Credits to [Whowechina](https://github.com/whowechina) for all the CLI code. <br>
+You can change every important setting through the cli. Like per led strip pin, count, offset, brightness and format. <br>
+If you connect to the CLI over serial using a serial monitor you get help with all the available commands. Or you can input "?" or "help"<br>
+If you change something please wait a couple settings for it to save. Then you can use the reboot command to reboot the pico to take the new changes into effect.<br>
+This is needed when you changed uart or led settings. This does not automatically change on the fly.
+
 ## For chuni airs:
 Pin 16 Chuni Board 0 Left COM20 <br/>
 Pin 15 Chuni Board 1 right COM21 <br/>
@@ -22,3 +29,8 @@ You can check which com port is which using any web serial console. Like [spaceh
 It should look like this <br/>
 <img src="https://github.com/ThatzOkay/837_15093_pico/raw/main/Example.png" height="100px"> <br/>
 Where LED board 0 is COM20 and LED board 1 is COM21.
+<br>
+This is the best option. But this can now be easily changes / fixed through the cli.
+
+## Serial
+Using the cli you can enable serial. This uses pico's uart 0 and 1. You can change to pins and baud rate through the cli.
