@@ -62,8 +62,11 @@ HRESULT jvs_encode(const uint8_t *in, uint32_t inlen, uint8_t *out, uint32_t *ou
 
 HRESULT jvs_process_packet(struct jvs_req_any *req, uint8_t *buff, uint32_t len)
 {
-    if (!buff || len == 0)
+    if (!buff || len == 0) 
+    {
+        log("Buffer not eq len");
         return E_HANDLE;
+    }
 
     if (buff[0] != 0xE0)
     {
