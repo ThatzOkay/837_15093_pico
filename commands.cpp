@@ -197,7 +197,7 @@ static void handle_led(int argc, char* argv[])
             break;
         }
 
-        led_cfg->led.enable_test = (on > 0);
+        led_cfg->led.enable_test = on == 0;
         break;
     case 1:
         handle_led_cfg(1, argc, argv);
