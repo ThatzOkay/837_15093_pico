@@ -1,7 +1,7 @@
 # Duel 15093 LED Board emulator.
 
 Credits to [SuperMonkeyLeds](https://github.com/akechi-haruka/SuperMonkeyLEDs) for the jvs parsing and led commands stuff.
-And to [Chu Pico](https://github.com/whowechina/chu_pico) for the base main.cpp inspiration and usb hid stuff
+And to [Chu Pico](https://github.com/whowechina/chu_pico) for the base main.cpp inspiration, usb hid stuff and cli / save logic / base config
 Tested to work in Chunithm, ONGEKI and APM3.
 In config.h you can setup a per baord offset for example if you just want the air leds for Chunithm.
 Default led pins is 2 for strip 1 and pin 3 for strip 2.

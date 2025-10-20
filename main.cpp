@@ -1,4 +1,8 @@
 #include <string>
+
+#include "cli.h"
+#include "commands.h"
+#include "config.h"
 #include "tusb.h"
 #include "hresult.h"
 #include "jvs.h"
@@ -12,8 +16,8 @@
 #include "pico/stdio.h"
 #include "pico/time.h"
 #include "pico/multicore.h"
-#include "config.h"
 #include "log.h"
+#include "save.h"
 #include "hardware/uart.h"
 
 #define FADE_TIMER_DEFAULT 80
@@ -42,12 +46,12 @@ static std::string board_name = "15093-06";
 
 void log_response(const jvs_resp_any *resp)
 {
-	log("Response length: %d\nPayload: ", resp->len);
+	debug_log("Response length: %d\nPayload: ", resp->len);
 	for (int i = 0; i < resp->len; i++)
 	{
-		log("%02X ", resp->payload[i]);
+		debug_log("%02X ", resp->payload[i]);
 	}
-	log("\n");
+	debug_log("\n");
 }
 
 bool is_all_zero(const void *buf, size_t len)
@@ -133,10 +137,10 @@ void internal_led_set(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 	switch (led_board)
 	{
 	case 0:
-		offset = LED_STRIP_01_OFFSET;
+		offset = led_cfg->led.led_1.offset;
 		break;
 	case 1:
-		offset = LED_STRIP_02_OFFSET;
+		offset = led_cfg->led.led_2.offset;
 		break;
 	default:
 		offset = 0;
@@ -300,7 +304,7 @@ void handle_led_command(jvs_req_any *req, jvs_resp_any *resp, int led_board)
 		break;
 
 	default:
-		log("Unknown command: 0x%02X\n", req->cmd);
+		debug_log("Unknown command: 0x%02X\n", req->cmd);
 		break;
 	}
 }
@@ -334,7 +338,7 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 	if (FAILED(result))
 	{
 		memset(jvs_buff, 0, MAX_PACKET);
-		log("JVS Failed (port %d): HRESULT=0x%08lX\n", port, static_cast<unsigned long>(result));
+		debug_log("JVS Failed (port %d): HRESULT=0x%08lX\n", port, static_cast<unsigned long>(result));
 
 		result = jvs_write_failure(result, 25, &req, out_buffer, &out_len);
 		if (result == S_OK)
@@ -344,11 +348,8 @@ void process_cdc_port(int port, uint8_t *jvs_buff, uint32_t *offset_ptr)
 			*offset_ptr = 0;
 			return;
 		}
-		else
-		{
-			*offset_ptr = 0;
-			return;
-		}
+		*offset_ptr = 0;
+		return;
 	}
 
 	handle_led_command(&req, &resp, port);
@@ -502,43 +503,49 @@ void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_pt
 	}
 }
 
+static mutex_t core1_io_lock;
+
 [[noreturn]] static void core1_loop()
 {
 	while (true)
 	{
 		process_uart_port(UART0_ID, jvs_buf_1, &offset_1);
 		process_uart_port(UART1_ID, jvs_buf_2, &offset_2);
-		if (fade_mode_1 != 0)
+		if (mutex_try_enter(&core1_io_lock, NULL))
 		{
-			log("fading");
-			if (fade_timer_1 > 0)
+			if (fade_mode_1 != 0)
 			{
-				fade_timer_1 -= DELAY;
-			}
-			if (fade_timer_1 <= 0)
-			{
-				if (fade_mode_1 == FADE_MODE_DECREASE)
+				debug_log("fading");
+				if (fade_timer_1 > 0)
 				{
-					fade_value_1 -= fade_modifier_1;
-					if (fade_value_1 <= 0)
-					{
-						fade_value_1 = 0;
-						fade_mode_1 = FADE_MODE_INCREASE;
-					}
+					fade_timer_1 -= led_cfg->fade.delay;
 				}
-				else if (fade_mode_1 == FADE_MODE_INCREASE)
+				if (fade_timer_1 <= 0)
 				{
-					fade_value_1 += fade_modifier_1;
-					if (fade_value_1 >= 255)
+					if (fade_mode_1 == FADE_MODE_DECREASE)
 					{
-						fade_value_1 = 255;
-						fade_mode_1 = FADE_MODE_DECREASE;
+						fade_value_1 -= fade_modifier_1;
+						if (fade_value_1 <= 0)
+						{
+							fade_value_1 = 0;
+							fade_mode_1 = FADE_MODE_INCREASE;
+						}
 					}
-				}
+					else if (fade_mode_1 == FADE_MODE_INCREASE)
+					{
+						fade_value_1 += fade_modifier_1;
+						if (fade_value_1 >= 255)
+						{
+							fade_value_1 = 255;
+							fade_mode_1 = FADE_MODE_DECREASE;
+						}
+					}
 
-				log("fade set");
-				led_strip::set_brightness(fade_value_1, 0);
+					debug_log("fade set");
+					led_strip::set_brightness(fade_value_1, 0);
+				}
 			}
+            mutex_exit(&core1_io_lock);
 		}
 		sleep_us(10);
 	}
@@ -561,6 +568,9 @@ void process_uart_port(uart_inst_t *port, uint8_t *jvs_buff, uint32_t *offset_pt
 			process_cdc_port(1, jvs_buf_2, &offset_2);
 		}
 
+		cli_run();
+		save_loop();
+
 		next_frame = time_us_64() + 1000;
 		sleep_until(next_frame);
 	}
@@ -574,15 +584,15 @@ void led_test()
 
 void init_uart()
 {
-	uart_init(UART0_ID, BAUD_RATE);
+	uart_init(UART0_ID, led_cfg->uart.baud_rate);
 
-	gpio_set_function(UART0_TX_PIN, UART_FUNCSEL_NUM(UART0_ID, UART0_TX_PIN));
-	gpio_set_function(UART0_RX_PIN, UART_FUNCSEL_NUM(UART0_ID, UART0_RX_PIN));
+	gpio_set_function(led_cfg->uart.uart_0_pin.tx, UART_FUNCSEL_NUM(UART0_ID, led_cfg->uart.uart_0_pin.tx));
+	gpio_set_function(led_cfg->uart.uart_0_pin.rx, UART_FUNCSEL_NUM(UART0_ID, led_cfg->uart.uart_0_pin.rx));
 
 	uart_init(UART1_ID, BAUD_RATE);
 
-	gpio_set_function(UART1_TX_PIN, UART_FUNCSEL_NUM(UART1_ID, UART1_TX_PIN));
-	gpio_set_function(UART1_RX_PIN, UART_FUNCSEL_NUM(UART1_ID, UART1_RX_PIN));
+	gpio_set_function(led_cfg->uart.uart_1_pin.tx, UART_FUNCSEL_NUM(UART1_ID, led_cfg->uart.uart_1_pin.tx));
+	gpio_set_function(led_cfg->uart.uart_1_pin.rx, UART_FUNCSEL_NUM(UART1_ID, led_cfg->uart.uart_1_pin.rx));
 }
 
 void clean_uart()
@@ -609,20 +619,29 @@ void init()
 	tusb_init();
 	stdio_init_all();
 
+	config_init();
+
 #if ENABLE_UART == 1
 	log("UART mode enabled\n");
 	init_uart();
 
 	clean_uart();
 #endif
+	mutex_init(&core1_io_lock);
+	save_init(0xca34cafe, &core1_io_lock);
+
+	cli_init("15093_pico>", "\n   << Sega LED Emulator >>\n"
+							" https://github.com/thatzokay\n\n");
+
+	commands_init();
 }
 
 int main()
 {
 	init();
-#if ENABLE_LED_TEST
-	led_test();
-#endif
+	if (led_cfg->led.enable_test) {
+		led_test();
+	}
 	multicore_launch_core1(core1_loop);
 	core0_loop();
 }

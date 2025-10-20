@@ -5,8 +5,8 @@
 
 namespace led_strip
 {
-    auto led_strip_1 = PicoLed::addLeds<PicoLed::WS2812B>(pio1, 1, LED_STRIP_01, LED_COUNT_01, FORMAT);
-    auto led_strip_2 = PicoLed::addLeds<PicoLed::WS2812B>(pio1 , 2, LED_STRIP_02, LED_COUNT_02, FORMAT);
+    auto led_strip_1 = PicoLed::addLeds<PicoLed::WS2812B>(pio1, 1, led_cfg->led.led_1.pin, led_cfg->led.led_1.count, led_cfg->led.led_1.format);
+    auto led_strip_2 = PicoLed::addLeds<PicoLed::WS2812B>(pio1 , 2, led_cfg->led.led_2.pin, led_cfg->led.led_2.count, led_cfg->led.led_2.format);
 
     void reset(const int strip)
     {
@@ -19,11 +19,13 @@ namespace led_strip
     void set_pixels(const std::array<color, MAX_LEDS>& payload, int strip)
     {
         auto& target = (strip == 0) ? led_strip_1 : led_strip_2;
+        auto& led_config = (strip == 0) ? led_cfg->led.led_1 : led_cfg->led.led_2;
 
-        int led_count = (strip == 0) ? LED_COUNT_01 : LED_COUNT_02;
+        int led_count = (strip == 0) ? led_cfg->led.led_1.count : led_cfg->led.led_2.count;
 
         for (int i = 0; i < led_count; ++i)
             target.setPixelColor(i, PicoLed::RGB(payload[i].r, payload[i].g, payload[i].b));
+        target.setBrightness(led_config.brightness);
         target.show();
     }
 
