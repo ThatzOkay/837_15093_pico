@@ -510,8 +510,11 @@ static mutex_t core1_io_lock;
     {
         if (mutex_try_enter(&core1_io_lock, NULL))
         {
-            process_uart_port(UART0_ID, jvs_buf_1, &offset_1);
-            process_uart_port(UART1_ID, jvs_buf_2, &offset_2);
+            if (led_cfg->uart.enable)
+            {
+                process_uart_port(UART0_ID, jvs_buf_1, &offset_1);
+                process_uart_port(UART1_ID, jvs_buf_2, &offset_2);
+            }
             if (fade_mode_1 != 0)
             {
                 debug_log("fading");
@@ -629,8 +632,11 @@ void init()
 
     commands_init();
 
-    init_uart();
-    clean_uart();
+    if (led_cfg->uart.enable)
+    {
+        init_uart();
+        clean_uart();
+    }
 }
 
 int main()
