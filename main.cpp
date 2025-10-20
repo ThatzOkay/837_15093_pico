@@ -582,6 +582,10 @@ void led_test()
 {
     led_strip::fill_strip(0);
     led_strip::fill_strip(1);
+
+    sleep_ms(1000);
+    led_strip::reset(0);
+    led_strip::reset(1);
 }
 
 void init_uart()
