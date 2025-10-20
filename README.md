@@ -33,4 +33,7 @@ Where LED board 0 is COM20 and LED board 1 is COM21.
 This is the best option. But this can now be easily changes / fixed through the cli.
 
 ## Serial
-Using the cli you can enable serial. This uses pico's uart 0 and 1. You can change to pins and baud rate through the cli.
+Using the cli you can enable serial. This uses pico's uart 0 and 1. You can change to pins and baud rate through the cli.<br>
+This is handy for when you want to directly hook up the pico to a serial port on your computer.<br>
+While testing I have used a Keystudio RS232 TO  TTL adapter hooked up to an Ugreen USB to RS232 cable.<br>
+This has been working without issues
