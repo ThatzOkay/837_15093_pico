@@ -9,6 +9,8 @@
 #include "pico/bootrom.h"
 #include "cli.h"
 
+#include <string>
+
 #include "log.h"
 #include "save.h"
 #include "class/cdc/cdc_device.h"
@@ -110,6 +112,49 @@ int cli_extract_non_neg_int(const char *param, int len)
         result = result * 10 + param[i] - '0';
     }
     return result;
+}
+
+std::string cli_extract_non_neg_string(const char* param, int len)
+{
+    if (param == nullptr)
+        return {};
+
+    if (len == 0)
+        len = strlen(param);
+
+    if (len >= 2 && param[0] == '"' && param[len - 1] == '"')
+    {
+        return std::string(param + 1, len - 2);
+    }
+
+    return std::string(param, len);
+}
+
+uint16_t cli_extract_non_neg_uint16(const char *param, int len)
+{
+    if (param == nullptr)
+        return 0;
+
+    if (len == 0)
+        len = strlen(param);
+
+    char buf[32] = {};
+    if (len >= static_cast<int>(sizeof(buf)))
+        len = sizeof(buf) - 1;
+    memcpy(buf, param, len);
+    buf[len] = '\0';
+
+    int base = 10;
+    if (len > 2 && buf[0] == '0' && (buf[1] == 'x' || buf[1] == 'X'))
+        base = 16;
+
+    char* end = nullptr;
+    const unsigned long value = strtoul(buf, &end, base);
+
+    if (end == buf || *end != '\0' || value > 0xFFFF)
+        return 0;
+
+    return static_cast<uint16_t>(value);
 }
 
 static char cmd_buf[256];

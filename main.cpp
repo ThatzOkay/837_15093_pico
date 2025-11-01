@@ -40,10 +40,6 @@ static bool setting_disable_resp_2 = false;
 static uint8_t jvs_buf_2[MAX_PACKET];
 static uint32_t offset_2 = 0;
 
-static std::string chip_num_ongeki = "6710A";
-static std::string chip_num_chuni = "6710 ";
-static std::string board_name = "15093-06";
-
 void log_response(const jvs_resp_any* resp)
 {
     debug_log("Response length: %d\nPayload: ", resp->len);
@@ -63,17 +59,12 @@ void led_get_board_info(jvs_req_any* req, jvs_resp_any* resp)
 {
     resp->len += 18;
     resp->report = 1;
-    strcpy(reinterpret_cast<char*>(resp->payload), board_name.c_str());
+    memcpy(resp->payload , led_cfg->firmware.board_name, sizeof(led_cfg->firmware.board_name));
+
     *(resp->payload + 8) = 0x0A;
 
-    if (req->dest == 0x01 && req->src == 0x02)
-    {
-        strcpy(reinterpret_cast<char*>(resp->payload) + 9, chip_num_ongeki.c_str());
-    }
-    else
-    {
-        strcpy(reinterpret_cast<char*>(resp->payload) + 9, chip_num_chuni.c_str());
-    }
+    memcpy(resp->payload + 9, led_cfg->firmware.chip_num, sizeof(led_cfg->firmware.chip_num));
+
     *(resp->payload + 14) = 0xFF;
 
     if (req->dest == 0x01 && req->src == 0x02)
@@ -92,16 +83,8 @@ void led_get_firm_sum(jvs_req_any* req, jvs_resp_any* resp)
 {
     resp->len += 2;
 
-    if (req->dest == 0x01 && req->src == 0x02)
-    {
-        *(resp->payload) = (0xAA53 >> 8) & 0xff;
-        *(resp->payload + 1) = (uint8_t)0xAA53 & 0xff;
-    }
-    else
-    {
-        *(resp->payload) = (0xADF7 >> 8) & 0xff;
-        *(resp->payload + 1) = (uint8_t)0xADF7 & 0xff;
-    }
+    *(resp->payload) = (led_cfg->firmware.firm_sum >> 8) & 0xff;
+    *(resp->payload + 1) = static_cast<uint8_t>(led_cfg->firmware.firm_sum) & 0xff;
 }
 
 void led_get_protocol_ver(jvs_req_any* req, jvs_resp_any* resp)

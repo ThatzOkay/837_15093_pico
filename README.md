@@ -16,6 +16,8 @@ Default LED pins are pico pin 15 / 16.
 ## CLI
 Credits to [Whowechina](https://github.com/whowechina) for all the CLI code. <br>
 You can change every important setting through the cli. Like per led strip pin, count, offset, brightness and format. <br>
+Or to enable orr disable UART and which pins to use <br>
+Or change the board number, chip number and firmware sum.
 If you connect to the CLI over serial using a serial monitor you get help with all the available commands. Or you can input "?" or "help"<br>
 If you change something please wait a couple settings for it to save. Then you can use the reboot command to reboot the pico to take the new changes into effect.<br>
 This is needed when you changed uart or led settings. This does not automatically change on the fly.

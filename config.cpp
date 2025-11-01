@@ -39,6 +39,11 @@ static led_cfg_t default_cfg = {
             .rx = 1,
         },
         .baud_rate = 115200
+    },
+    .firmware = {
+        .chip_num = { '6', '7', '1', '0', ' '},
+        .board_name = {'1','5','0','9','3','-','0','6'},
+        .firm_sum = 0xADF7
     }
 };
 
