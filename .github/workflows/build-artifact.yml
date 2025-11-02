@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Build Pico Project
         id: build
