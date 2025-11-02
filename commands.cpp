@@ -164,7 +164,7 @@ void handle_led_cfg(int led_strip, int argc, char* argv[])
     else
     {
         const char* formats[] = {"rgb", "grb", "wrgb"};
-        const int formatMatch = cli_match_prefix(formats, count_of(formats), argv[2]);
+        const int formatMatch = cli_match_prefix(formats, std::size(formats), argv[2]);
         if (formatMatch < 0)
         {
             cli_log(led_usage);
@@ -410,13 +410,10 @@ void handle_firmware(int argc, char* argv[])
             // Can't overflow
             if (std::strlen(argv[1]) < 5)
             {
-                debug_log("Chip num  name too short \n");
+                cli_log("Chip num  name too short \n");
                 return;
             }
-            debug_log("param: %s \n", argv[1]);
             const std::string value = cli_extract_non_neg_string(argv[1], 0);
-
-            debug_log("Value: %s \n", value.c_str());
 
             std::memset(led_cfg->firmware.chip_num, 0, sizeof(led_cfg->firmware.chip_num));
             std::memcpy(
@@ -431,11 +428,10 @@ void handle_firmware(int argc, char* argv[])
             // Can't overflow
             if (std::strlen(argv[1]) < 8)
             {
-                debug_log("Board name too short \n");
+                cli_log("Board name too short \n");
                 return;
             }
 
-            debug_log("param: %s \n", argv[1]);
             const std::string value = cli_extract_non_neg_string(argv[1], 0);
 
             std::memset(led_cfg->firmware.board_name, 0, sizeof(led_cfg->firmware.board_name));
@@ -453,6 +449,46 @@ void handle_firmware(int argc, char* argv[])
         }
     default: ;
     }
+
+    config_changed();
+}
+
+void handle_preset(int argc, char* argv[])
+{
+    const char* usage = "Usage: preset <chuni|chuni_airs|ongeki>\n";
+
+    if (argc < 1)
+    {
+        cli_log("%s", usage);
+        return;
+    }
+
+    const char* presets[] = {"chuni", "chuni_airs", "ongeki"};
+    int match = cli_match_prefix(presets, std::size(presets), argv[0]);
+
+    if (match < 0)
+    {
+        cli_log("%s", usage);
+        return;
+    }
+
+    switch (match)
+    {
+    case 0:
+        *led_cfg = get_chuni_preset(false);
+        break;
+    case 1:
+        *led_cfg = get_chuni_preset(true);
+        break;
+    case 2:
+        *led_cfg = get_ongeki_preset();
+        break;
+    default:
+        cli_log("%s", usage);
+        return;
+    }
+
+    config_changed();
 }
 
 static void handle_save()
@@ -480,6 +516,7 @@ void commands_init()
     cli_register("fade", cmd_handler_t(handle_fade), "Set fade config.");
     cli_register("uart", cmd_handler_t(handle_uart), "Set UART config.");
     cli_register("firmware", cmd_handler_t(handle_firmware), "Set Firmware config.");
+    cli_register("preset", cmd_handler_t(handle_preset), "Load preset config.");
     cli_register("save", cmd_handler_t(handle_save), "Save config to flash.");
     cli_register("factory", cmd_handler_t(handle_factory_reset), "Reset everything to default.");
     cli_register("reboot", cmd_handler_t(handle_reboot), "Reboot the pico");

@@ -59,6 +59,8 @@ typedef struct __attribute__((__packed__)) {
 
 extern led_cfg_t *led_cfg;
 
+led_cfg_t get_chuni_preset(bool airs);
+led_cfg_t get_ongeki_preset();
 void config_init();
 void config_changed(); // Notify the config has changed
 void config_factory_reset(); // Reset the config to factory default

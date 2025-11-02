@@ -47,9 +47,32 @@ int cli_match_prefix(const char *str[], int num, const char *prefix)
 {
     int match = -1;
     bool found = false;
+    size_t prefix_len = strlen(prefix);
 
-    for (int i = 0; (i < num) && str[i]; i++) {
-        if (strncasecmp(str[i], prefix, strlen(prefix)) == 0) {
+    bool has_exact_and_extended = false;
+    for (int i = 0; i < num && str[i]; i++) {
+        size_t len_i = strlen(str[i]);
+        for (int j = 0; j < num && str[j]; j++) {
+            if (i != j && len_i < strlen(str[j]) &&
+                strncasecmp(str[i], str[j], len_i) == 0 &&
+                str[j][len_i] == '_') {
+                has_exact_and_extended = true;
+                break;
+                }
+        }
+        if (has_exact_and_extended) break;
+    }
+
+    if (has_exact_and_extended) {
+        for (int i = 0; i < num && str[i]; i++) {
+            if (strcasecmp(str[i], prefix) == 0) {
+                return i;
+            }
+        }
+    }
+
+    for (int i = 0; i < num && str[i]; i++) {
+        if (strncasecmp(str[i], prefix, prefix_len) == 0) {
             if (found) {
                 return -2;
             }
@@ -60,6 +83,7 @@ int cli_match_prefix(const char *str[], int num, const char *prefix)
 
     return match;
 }
+
 
 const char *built_time = __DATE__ " " __TIME__;
 
@@ -163,20 +187,40 @@ static int cmd_len = 0;
 static void process_cmd()
 {
     char *argv[MAX_PARAMETERS];
-    int argc;
+    int argc = 0;
 
-    char *cmd = strtok(cmd_buf, " \n");
+    bool inQuotes = false;
+    int tokenStart = -1;
+    size_t len = strlen(cmd_buf);
 
-    if (strlen(cmd) == 0) {
-        return;
+    for (size_t i = 0; i <= len; i++) {
+        char token = (i < len) ? cmd_buf[i] : '\0';
+
+        if (token == '"') {
+            inQuotes = !inQuotes;
+            if (inQuotes && tokenStart == -1) {
+                tokenStart = i + 1;
+            } else if (!inQuotes) {
+                cmd_buf[i] = '\0';
+            }
+        } else if ((token == ' ' || token == '\n' || token == '\0') && !inQuotes) {
+            if (tokenStart != -1) {
+                cmd_buf[i] = '\0';
+                if (argc < MAX_PARAMETERS) {
+                    argv[argc++] = &cmd_buf[tokenStart];
+                }
+                tokenStart = -1;
+            }
+        } else {
+            if (tokenStart == -1 && token != ' ' && token != '\n') {
+                tokenStart = i;
+            }
+        }
     }
 
-    argc = 0;
-    while ((argc < MAX_PARAMETERS) &&
-           (argv[argc] = strtok(NULL, " ,\n")) != NULL) {
-        argc++;
-    }
+    if (argc == 0) return;
 
+    char *cmd = argv[0];
     int match = cli_match_prefix(commands, num_commands, cmd);
     if (match == -2) {
         cli_log("Ambiguous command.\n");
@@ -187,8 +231,45 @@ static void process_cmd()
         return;
     }
 
+    for (int i = 1; i < argc; i++) {
+        argv[i - 1] = argv[i];
+    }
+    argc--;
+
     handlers[match](argc, argv);
 }
+
+// static void process_cmd()
+// {
+//     char *argv[MAX_PARAMETERS];
+//     int argc;
+//
+//     char *cmd = strtok(cmd_buf, " \n");
+//
+//     if (strlen(cmd) == 0) {
+//         return;
+//     }
+//
+//     argc = 0;
+//     while ((argc < MAX_PARAMETERS) &&
+//            (argv[argc] = strtok(NULL, " ,\n")) != NULL) {
+//         argc++;
+//            }
+//
+//     int match = cli_match_prefix(commands, num_commands, cmd);
+//     if (match == -2) {
+//         cli_log("Ambiguous command.\n");
+//         return;
+//     } else if (match == -1) {
+//         cli_log("Unknown command.\n");
+//         handle_help(0, NULL);
+//         return;
+//     }
+//
+//     debug_log("argc: %d\n", argc);
+//
+//     handlers[match](argc, argv);
+// }
 
 void cli_run()
 {
