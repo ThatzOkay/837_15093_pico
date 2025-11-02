@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "cli.h"
 #include "config.h"
 #include "log.h"
@@ -10,7 +12,7 @@ void disp_debug()
     cli_log(" Enabled: %b \n", led_cfg->debug.enable);
 }
 
-const char* format_names[] = { "RGB", "GRB", "WRGB" };
+const char* format_names[] = {"RGB", "GRB", "WRGB"};
 
 void disp_led()
 {
@@ -39,6 +41,17 @@ void disp_uart()
     cli_log("Baud rate: %u\n", led_cfg->uart.baud_rate);
 }
 
+void disp_firmware()
+{
+    const auto chip_num = led_cfg->firmware.chip_num;
+    const auto board_name = led_cfg->firmware.board_name;
+
+    cli_log("[Firmware]\n");
+    cli_log("Firmware: Chip number: %.*s\n", 5, (const char*)chip_num);
+    cli_log("Firmware: Board name: %.*s\n", 8, (const char*)board_name);
+    cli_log("Firmware: Firmware sum: 0x%X\n", led_cfg->firmware.firm_sum);
+}
+
 void handle_display(int argc, char* argv[])
 {
     auto usage = "Usage: display [debug|led|fade|uart]\n";
@@ -54,10 +67,11 @@ void handle_display(int argc, char* argv[])
         disp_led();
         disp_fade();
         disp_uart();
+        disp_firmware();
     }
 
-    const char* choices[] = {"debug", "led", "fade", "uart"};
-    switch (cli_match_prefix(choices, count_of(choices), argv[0]))
+    const char* choices[] = {"debug", "led", "fade", "uart", "firmware"};
+    switch (cli_match_prefix(choices, std::size(choices), argv[0]))
     {
     case 0:
         disp_debug();
@@ -70,6 +84,9 @@ void handle_display(int argc, char* argv[])
         break;
     case 3:
         disp_uart();
+        break;
+    case 4:
+        disp_firmware();
         break;
     default:
         cli_log(usage);
@@ -112,7 +129,7 @@ void handle_led_cfg(int led_strip, int argc, char* argv[])
         return;
     }
 
-    const char* keywords[] = { "pin", "count", "offset", "brightness", "format" };
+    const char* keywords[] = {"pin", "count", "offset", "brightness", "format"};
     const int match = cli_match_prefix(keywords, count_of(keywords), argv[1]);
 
     if (match < 0)
@@ -132,18 +149,22 @@ void handle_led_cfg(int led_strip, int argc, char* argv[])
 
         switch (match)
         {
-        case 0: led_config.pin = value; break;
-        case 1: led_config.count = value; break;
-        case 2: led_config.offset = value; break;
-        case 3: led_config.brightness = value; break;
+        case 0: led_config.pin = value;
+            break;
+        case 1: led_config.count = value;
+            break;
+        case 2: led_config.offset = value;
+            break;
+        case 3: led_config.brightness = value;
+            break;
         default:
             cli_log(led_usage);
         }
     }
     else
     {
-        const char* formats[] = { "rgb", "grb", "wrgb" };
-        const int formatMatch = cli_match_prefix(formats, count_of(formats), argv[2]);
+        const char* formats[] = {"rgb", "grb", "wrgb"};
+        const int formatMatch = cli_match_prefix(formats, std::size(formats), argv[2]);
         if (formatMatch < 0)
         {
             cli_log(led_usage);
@@ -268,7 +289,7 @@ void handle_uart_cfg(int uart, int argc, char* argv[])
         uart_cfg->tx = value;
         break;
     case 1:
-       uart_cfg->rx = value;
+        uart_cfg->rx = value;
         break;
     default:
         cli_log("%s", uart_usage);
@@ -279,7 +300,7 @@ void handle_uart_cfg(int uart, int argc, char* argv[])
 const int supported_baud_rates[] = {
     1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200
 };
-constexpr  int num_supported_baud_rates = sizeof(supported_baud_rates)/sizeof(supported_baud_rates[0]);
+constexpr int num_supported_baud_rates = std::size(supported_baud_rates);
 
 void handle_uart(int argc, char* argv[])
 {
@@ -290,7 +311,7 @@ void handle_uart(int argc, char* argv[])
     }
 
     const char* commands[] = {"enable", "0", "1", "baud_rate"};
-    int match = cli_match_prefix(commands, count_of(commands), argv[0]);
+    int match = cli_match_prefix(commands, std::size(commands), argv[0]);
 
     if (match < 0)
     {
@@ -362,6 +383,114 @@ void handle_uart(int argc, char* argv[])
     cli_log("It is advised to issue a reboot command after saving is finished to initialize new pin values.\n");
 }
 
+void handle_firmware(int argc, char* argv[])
+{
+    const char* usage = "Usage: firmware chip_num: \" 5 chars\", board_name: \"string 8 chars\", sum: <0xsum>\n";
+
+    if (argc < 1)
+    {
+        cli_log(usage);
+        return;
+    }
+
+    const char* commands[] = {"chip_num", "board_name", "sum"};
+
+    int match = cli_match_prefix(commands, std::size(commands), argv[0]);
+
+    if (match < 0)
+    {
+        cli_log(usage);
+        return;
+    }
+
+    switch (match)
+    {
+    case 0:
+        {
+            // Can't overflow
+            if (std::strlen(argv[1]) < 5)
+            {
+                cli_log("Chip num  name too short \n");
+                return;
+            }
+            const std::string value = cli_extract_non_neg_string(argv[1], 0);
+
+            std::memset(led_cfg->firmware.chip_num, 0, sizeof(led_cfg->firmware.chip_num));
+            std::memcpy(
+                led_cfg->firmware.chip_num,
+                value.c_str(),
+                std::min(value.size(), sizeof(led_cfg->firmware.chip_num))
+            );
+            break;
+        }
+    case 1:
+        {
+            // Can't overflow
+            if (std::strlen(argv[1]) < 8)
+            {
+                cli_log("Board name too short \n");
+                return;
+            }
+
+            const std::string value = cli_extract_non_neg_string(argv[1], 0);
+
+            std::memset(led_cfg->firmware.board_name, 0, sizeof(led_cfg->firmware.board_name));
+            std::memcpy(
+                led_cfg->firmware.board_name,
+                value.data(),
+                std::min(value.size(), sizeof(led_cfg->firmware.board_name))
+            );
+        }
+    case 2:
+        {
+            const uint16_t value = cli_extract_non_neg_uint16(argv[1], 0);
+
+            led_cfg->firmware.firm_sum = value;
+        }
+    default: ;
+    }
+
+    config_changed();
+}
+
+void handle_preset(int argc, char* argv[])
+{
+    const char* usage = "Usage: preset <chuni|chuni_airs|ongeki>\n";
+
+    if (argc < 1)
+    {
+        cli_log("%s", usage);
+        return;
+    }
+
+    const char* presets[] = {"chuni", "chuni_airs", "ongeki"};
+    int match = cli_match_prefix(presets, std::size(presets), argv[0]);
+
+    if (match < 0)
+    {
+        cli_log("%s", usage);
+        return;
+    }
+
+    switch (match)
+    {
+    case 0:
+        *led_cfg = get_chuni_preset(false);
+        break;
+    case 1:
+        *led_cfg = get_chuni_preset(true);
+        break;
+    case 2:
+        *led_cfg = get_ongeki_preset();
+        break;
+    default:
+        cli_log("%s", usage);
+        return;
+    }
+
+    config_changed();
+}
+
 static void handle_save()
 {
     save_request(true);
@@ -386,6 +515,8 @@ void commands_init()
     cli_register("led", cmd_handler_t(handle_led), "Set led config.");
     cli_register("fade", cmd_handler_t(handle_fade), "Set fade config.");
     cli_register("uart", cmd_handler_t(handle_uart), "Set UART config.");
+    cli_register("firmware", cmd_handler_t(handle_firmware), "Set Firmware config.");
+    cli_register("preset", cmd_handler_t(handle_preset), "Load preset config.");
     cli_register("save", cmd_handler_t(handle_save), "Save config to flash.");
     cli_register("factory", cmd_handler_t(handle_factory_reset), "Reset everything to default.");
     cli_register("reboot", cmd_handler_t(handle_reboot), "Reboot the pico");
