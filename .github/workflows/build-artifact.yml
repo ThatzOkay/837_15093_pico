@@ -1,0 +1,29 @@
+name: Build artifact
+
+on:
+  push:
+    branches: 
+      "main"
+
+jobs:
+  build:
+    name: Build Pico Project
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checout repository
+        uses: actions/checkout@v4
+
+      - name: Build Pico Project
+        id: build
+        uses: samyarsadat/Pico-Build-Action@v1
+        with:
+          source_dir: "./"
+          cmake_args: "-DCMAKE_BUILD_TYPE=Release"
+
+      - name: Upload UF2 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Build artifact
+          path: |
+            ${{ steps.build.outputs.output_dir }}/**/*.uf2
