@@ -26,6 +26,13 @@ The CLI also contains some presets for common games. <br>
 You can use the "preset" command to see all available presets. <br>
 
 ## For chuni airs:
+Pre New:<br/>
+Pin 16 Chuni Bpard 0 Left COM10 <br />
+Pin 15 Chuni Board 1 right COM11 <br/>
+SP MODE:<br/> 
+Pin 16 Chuni Board 0 Left COM2 <br/>
+Pin 15 Chuni Board 1 right COM3 <br/>
+CVT MODE:<br/> 
 Pin 16 Chuni Board 0 Left COM20 <br/>
 Pin 15 Chuni Board 1 right COM21 <br/>
 Please make sure LED board 0 is COM20 and LED board 1 is COM21. <br/>

@@ -12,7 +12,11 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico CACHE STRING "Board type")
+if(DEFINED ENV{PICO_BOARD})
+    set(PICO_BOARD $ENV{PICO_BOARD} CACHE STRING "Board type")
+else()
+    set(PICO_BOARD pico CACHE STRING "Board type")
+endif()
 
 cmake_minimum_required(VERSION 3.12)
 
@@ -33,7 +37,7 @@ link_libraries(pico_multicore pico_stdlib
 
 function(make_firmware board board_def)
     add_executable(${board}
-        main.cpp usb_descriptors.cpp jvs.cpp led_strip.cpp log.cpp commands.cpp cli.cpp save.cpp config.cpp)
+        main.cpp usb_descriptors.cpp jvs.cpp port_handler.cpp led_commands.cpp led_strip.cpp log.cpp commands.cpp cli.cpp save.cpp config.cpp)
 
     add_subdirectory(pico_led)
 
