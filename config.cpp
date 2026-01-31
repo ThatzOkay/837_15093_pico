@@ -8,6 +8,8 @@ static led_cfg_t default_cfg = {
     .debug = {
         .enable = false
     },
+    .ledMode = { ARCADE },
+    .ledEffect = { BOUNCE },
     .led = {
         .enable_test = false,
         .led_1 = {
@@ -51,6 +53,8 @@ static led_cfg_t preset_chuni = {
     .debug = {
         .enable = false
     },
+    .ledMode = { ARCADE },
+    .ledEffect = { BOUNCE },
     .led = {
         .enable_test = false,
         .led_1 = {
@@ -136,6 +140,8 @@ static led_cfg_t preset_ongeki = {
     .debug = {
         .enable = false
     },
+    .ledMode = { ARCADE },
+    .ledEffect = { BOUNCE },
     .led = {
         .enable_test = false,
         .led_1 = {

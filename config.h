@@ -4,16 +4,27 @@
 
 #ifndef PICO_SEGA_LED_CONFIG_H
 #define PICO_SEGA_LED_CONFIG_H
-#include <cstdint>
-#include <string>
-#include <vector>
 
+#include "effects.h"
 #include "PicoLedTarget.hpp"
 
 #define MAX_PACKET 256
 #define UART_READ_TIMEOUT_US 2000
 #define UART0_ID uart0
 #define UART1_ID uart1
+
+enum Mode {
+    ARCADE,
+    EFFECT
+};
+
+struct ModeConfig {
+    Mode mode;
+};
+
+struct EffectConfig {
+    Effect effect;
+};
 
 struct LedConfig {
     uint8_t pin;
@@ -33,6 +44,12 @@ typedef struct __attribute__((__packed__)) {
     struct {
         bool enable;
     } debug;
+    struct {
+        Mode mode;
+    } ledMode;
+    struct {
+        Effect effect;
+    } ledEffect;
     struct {
         bool enable_test;
         LedConfig led_1;

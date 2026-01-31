@@ -1,3 +1,3 @@
 [submodule "pico_led"]
 	path = pico_led
-	url = https://github.com/ForsakenNGS/PicoLED.git
+	url = https://github.com/ThatzOkay/PicoLED.git

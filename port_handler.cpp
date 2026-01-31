@@ -80,13 +80,9 @@ void process_cdc_port(int port, uint8_t* jvs_buff, uint32_t* offset_ptr)
             tud_cdc_n_write(port, out_buffer, out_len);
             tud_cdc_n_write_flush(port);
         }
-
-        *offset_ptr = 0;
     }
-    else
-    {
-        *offset_ptr = 0;
-    }
+    
+    *offset_ptr = 0;
 }
 
 bool read_jvs_packet(uart_inst_t* port, uint8_t* buf, uint32_t* len_out)
@@ -111,15 +107,12 @@ bool read_jvs_packet(uart_inst_t* port, uint8_t* buf, uint32_t* len_out)
 
         if (absolute_time_diff_us(start, get_absolute_time()) > UART_READ_TIMEOUT_US)
         {
-            //debug_log("UART Timeout reached \n");
             return false;
         }
     }
 
     if (!wait_for_readable(port, UART_READ_TIMEOUT_US))
         return false;
-
-    // log("Sync byte found \n");
 
     uint8_t src = uart_getc(port);
     uint8_t dest = uart_getc(port);
@@ -136,11 +129,6 @@ bool read_jvs_packet(uart_inst_t* port, uint8_t* buf, uint32_t* len_out)
     }
 
     *len_out = index;
-
-    // log("Raw read buff:");
-    // for (int i = 0; i < index; i++)
-    // 	log(" %02X", buf[i]);
-    // log("\n");
 
     return true;
 }

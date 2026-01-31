@@ -46,6 +46,10 @@ void led_get_protocol_ver(jvs_req_any* req, jvs_resp_any* resp)
 
 void led_reset(jvs_req_any* req, jvs_resp_any* resp, int led_board)
 {
+    if (led_cfg->ledMode.mode == EFFECT) {
+        return;
+    }
+
     // setting_timeout = 0;
     if (led_board == 0)
     {
@@ -106,6 +110,10 @@ void internal_led_set(jvs_req_any* req, jvs_resp_any* resp, int led_board)
 
 void led_set(jvs_req_any* req, jvs_resp_any* resp, int led_board)
 {
+    if (led_cfg->ledMode.mode == EFFECT) {
+        return;
+    }
+
     if (led_board == 0)
     {
         fade_mode_1 = FADE_MODE_NONE;
@@ -119,6 +127,10 @@ void led_set(jvs_req_any* req, jvs_resp_any* resp, int led_board)
 
 void led_set_fade(jvs_req_any* req, jvs_resp_any* resp, int led_board)
 {
+    if (led_cfg->ledMode.mode == EFFECT) {
+        return;
+    }
+
     if (led_board == 0)
     {
         fade_mode_1 = FADE_MODE_DECREASE;

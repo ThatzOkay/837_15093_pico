@@ -4,7 +4,6 @@
 #include "commands.h"
 #include "config.h"
 #include "tusb.h"
-#include "hresult.h"
 #include "jvs.h"
 #include "led_strip.h"
 #include "led_commands.h"
@@ -37,7 +36,7 @@ void log_response(const jvs_resp_any* resp)
     debug_log("\n");
 }
 
-bool is_all_zero(const void* buf, size_t len)
+bool is_all_zero(const void* buf, const size_t len)
 {
     return memchr(buf, 1, len) == nullptr;
 }
@@ -48,13 +47,19 @@ static mutex_t core1_io_lock;
 {
     while (true)
     {
-        if (mutex_try_enter(&core1_io_lock, NULL))
+        if (mutex_try_enter(&core1_io_lock, nullptr))
         {
             if (led_cfg->uart.enable)
             {
                 process_uart_port(UART0_ID, jvs_buf_1, &offset_1);
                 process_uart_port(UART1_ID, jvs_buf_2, &offset_2);
             }
+
+            if (led_cfg->ledMode.mode == EFFECT) {
+                led_strip::set_effect(0, led_cfg->ledEffect.effect);
+                led_strip::set_effect(1, led_cfg->ledEffect.effect);
+            }
+
             if (fade_mode_1 != 0)
             {
                 debug_log("fading");

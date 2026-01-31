@@ -235,8 +235,8 @@ char const* string_desc_arr [] =
   "837-15067-02 Port",           // 2: Product
   NULL,                          // 3: Serials will use unique ID if possible
   "LED board 0",                 // 4: CDC 0 Interface
-  "LED board 1",                 // 4: CDC 1 Interface
-  "CLI",                         // 4: CDC 2 Interface
+  "LED board 1",                 // 5: CDC 1 Interface
+  "CLI",                         // 6: CDC 2 Interface
 };
 
 static uint16_t _desc_str[32];
