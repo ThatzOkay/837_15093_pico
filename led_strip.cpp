@@ -10,6 +10,18 @@
 
 namespace led_strip
 {
+    std::unique_ptr<PicoLed::PicoLedEffect> activeEffects[2];
+    Effect currentEffects[2] = {BOUNCE, BOUNCE};
+
+    const vector<PicoLed::Color> rainbowPallet = {
+        {255, 0, 0},
+        {255, 127, 0},
+        {255, 255, 0},
+        {0, 255, 0},
+        {0, 0, 255},
+        {75, 0, 130},
+        {148, 0, 211}};
+
     auto &get_strip(int strip)
     {
         static auto led_strip_1 = PicoLed::addLeds<PicoLed::WS2812B>(
@@ -64,71 +76,86 @@ namespace led_strip
 
     void set_effect(int strip, Effect effect)
     {
-        const vector<PicoLed::Color> rainbowPallet = {
-            {255, 0, 0},
-            {255, 127, 0},
-            {255, 255, 0},
-            {0, 255, 0},
-            {0, 0, 255},
-            {75, 0, 130},
-            {148, 0, 211}};
-
-        const PicoLed::Color baseColor{255, 255, 255, 255};
+        if (strip < 0 || strip > 1)
+            return;
 
         auto &target = get_strip(strip);
 
-        std::unique_ptr<PicoLed::PicoLedEffect> effectPtr;
+        activeEffects[strip].reset();
 
         switch (effect)
         {
         case BOUNCE:
         {
             PicoLed::Bounce bounceEffect(target, 1.5, 8.0);
-
             bounceEffect.addBall(PicoLed::RGB(255, 0, 0), 2.0);
             bounceEffect.addBall(PicoLed::RGB(0, 255, 0), 2.0);
             bounceEffect.addBall(PicoLed::RGB(0, 0, 255), 2.0);
-
-            effectPtr = std::make_unique<PicoLed::Bounce>(bounceEffect);
+            activeEffects[strip] = std::make_unique<PicoLed::Bounce>(bounceEffect);
             break;
         }
         case COMET:
-        {
-            effectPtr = std::make_unique<PicoLed::Comet>(target, baseColor, 10.0, 2.0, 1.5);
+            activeEffects[strip] = std::make_unique<PicoLed::Comet>(
+                target, PicoLed::RGB(255, 255, 255), 10.0, 2.0, 1.5);
             break;
-        }
         case FADE:
-        {
-            effectPtr = std::make_unique<PicoLed::Fade>(target, baseColor, 1);
+            activeEffects[strip] = std::make_unique<PicoLed::Fade>(
+                target, PicoLed::RGB(255, 255, 255), 5);
             break;
-        }
         case MARQUEE:
-        {
-            effectPtr = std::make_unique<PicoLed::Marquee>(target, rainbowPallet, 5.0, -2.0, 1.0);
+            activeEffects[strip] = std::make_unique<PicoLed::Marquee>(
+                target, rainbowPallet, 1.0, 8.0);
             break;
-        }
         case PARTICLES:
         {
             PicoLed::Particles particlesEffect(target, rainbowPallet, 0.5, 1.5);
-
             particlesEffect.addSource(16, 0.75, -0.3);
             particlesEffect.addSource(17, 0.75, 0.3);
-
-            effectPtr = std::make_unique<PicoLed::Particles>(particlesEffect);
+            activeEffects[strip] = std::make_unique<PicoLed::Particles>(particlesEffect);
             break;
         }
         case STARS:
-        {
-            effectPtr = std::make_unique<PicoLed::Stars>(target, baseColor, 4.0);
+            activeEffects[strip] = std::make_unique<PicoLed::Stars>(
+                target, PicoLed::RGB(255, 255, 255), 4.0);
             break;
-        }
         default:
-            break;
+            return;
         }
-        
-        if (effectPtr->animate())
+
+        currentEffects[strip] = effect;
+
+        if (activeEffects[strip])
+        {
+            activeEffects[strip]->animate();
+            target.show();
+        }
+    }
+
+    void update_effect(int strip)
+    {
+        if (strip < 0 || strip > 1)
+            return;
+        if (!activeEffects[strip])
+            return;
+
+        auto &target = get_strip(strip);
+        if (activeEffects[strip]->animate())
         {
             target.show();
         }
+    }
+
+    void update_effect(int strip, uint32_t timeGone)
+    {
+        if (strip < 0 || strip > 1)
+            return;
+        update_effect(strip);
+    }
+
+    bool should_update_effect(int strip, Effect newEffect)
+    {
+        if (strip < 0 || strip > 1)
+            return false;
+        return currentEffects[strip] != newEffect;
     }
 }

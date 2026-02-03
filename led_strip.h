@@ -19,4 +19,7 @@ namespace led_strip
     void fill_strip(int strip);
     void set_brightness(uint8_t brightness, int strip);
     void set_effect(int strip, Effect effect);
+    void update_effect(int strip);
+    void update_effect(int strip, uint32_t timeGone);
+    bool should_update_effect(int strip, Effect newEffect);
 }

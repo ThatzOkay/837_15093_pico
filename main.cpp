@@ -56,8 +56,15 @@ static mutex_t core1_io_lock;
             }
 
             if (led_cfg->ledMode.mode == EFFECT) {
-                led_strip::set_effect(0, led_cfg->ledEffect.effect);
-                led_strip::set_effect(1, led_cfg->ledEffect.effect);
+                if (led_strip::should_update_effect(0, led_cfg->ledEffect.effect)) {
+                    led_strip::set_effect(0, led_cfg->ledEffect.effect);
+                }
+                if (led_strip::should_update_effect(1, led_cfg->ledEffect.effect)) {
+                    led_strip::set_effect(1, led_cfg->ledEffect.effect);
+                }
+                
+                led_strip::update_effect(0);
+                led_strip::update_effect(1);
             }
 
             if (fade_mode_1 != 0)
