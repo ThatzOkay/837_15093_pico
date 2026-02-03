@@ -165,7 +165,7 @@ void log_effect_usage() {
         }
     }
     cli_log("Please dont use fade effect as it is broken on the pico>\n");
-    cli_log(">\n");
+    cli_log("Seemd like particles is also broken. It's not saving>\n");
 }
 
 static void handle_effect(const int argc, char *argv[]) {
