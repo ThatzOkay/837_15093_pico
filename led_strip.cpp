@@ -11,7 +11,7 @@
 namespace led_strip
 {
     std::unique_ptr<PicoLed::PicoLedEffect> activeEffects[2];
-    Effect currentEffects[2] = {BOUNCE, BOUNCE};
+    Effect currentEffects[2] = {NONE, NONE};
 
     const vector<PicoLed::Color> rainbowPallet = {
         {255, 0, 0},
@@ -118,6 +118,10 @@ namespace led_strip
             activeEffects[strip] = std::make_unique<PicoLed::Stars>(
                 target, PicoLed::RGB(255, 255, 255), 4.0);
             break;
+        case NONE:
+            target.clear();
+            target.show();
+            break;
         default:
             return;
         }
@@ -127,6 +131,10 @@ namespace led_strip
         if (activeEffects[strip])
         {
             activeEffects[strip]->animate();
+            if (strip == 0)
+                target.setBrightness(led_cfg->led.led_1.brightness);
+            else
+                target.setBrightness(led_cfg->led.led_2.brightness);
             target.show();
         }
     }

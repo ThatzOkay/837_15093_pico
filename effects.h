@@ -8,10 +8,11 @@
 enum Effect {
     BOUNCE,
     COMET,
-    FADE,
+    FADE, //FADE is somehow broken to the point the pico isnt showing up on
     MARQUEE,
     PARTICLES,
-    STARS
+    STARS,
+    NONE
 };
 
 inline const char* toString(const Effect effect) noexcept {
@@ -22,6 +23,7 @@ inline const char* toString(const Effect effect) noexcept {
         case MARQUEE:   return "marquee";
         case PARTICLES: return "particles";
         case STARS:     return "stars";
+        case NONE:      return "none";
         default:        return "unknown";
     }
 }
@@ -33,6 +35,7 @@ inline bool tryParse(const std::string_view str, Effect &effect) noexcept {
     else if (str == "marquee")   effect = MARQUEE;
     else if (str == "particles") effect = PARTICLES;
     else if (str == "stars")     effect = STARS;
+    else if (str == "none")      effect = NONE;
     else return false;
 
     return true;
