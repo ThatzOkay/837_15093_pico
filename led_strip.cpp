@@ -71,8 +71,7 @@ namespace led_strip
             {0, 255, 0},
             {0, 0, 255},
             {75, 0, 130},
-            {148, 0, 211}
-        };
+            {148, 0, 211}};
 
         const PicoLed::Color baseColor{255, 255, 255, 255};
 
@@ -84,12 +83,18 @@ namespace led_strip
         {
         case BOUNCE:
         {
-            effectPtr = std::make_unique<PicoLed::Bounce>(target, 1, 1);
+            PicoLed::Bounce bounceEffect(target, 1.5, 8.0);
+
+            bounceEffect.addBall(PicoLed::RGB(255, 0, 0), 2.0);
+            bounceEffect.addBall(PicoLed::RGB(0, 255, 0), 2.0);
+            bounceEffect.addBall(PicoLed::RGB(0, 0, 255), 2.0);
+
+            effectPtr = std::make_unique<PicoLed::Bounce>(bounceEffect);
             break;
         }
         case COMET:
         {
-            effectPtr = std::make_unique<PicoLed::Comet>(target, baseColor, 1, 1);
+            effectPtr = std::make_unique<PicoLed::Comet>(target, baseColor, 10.0, 2.0, 1.5);
             break;
         }
         case FADE:
@@ -99,23 +104,31 @@ namespace led_strip
         }
         case MARQUEE:
         {
-            effectPtr = std::make_unique<PicoLed::Marquee>(target, rainbowPallet, 1, 1);
+            effectPtr = std::make_unique<PicoLed::Marquee>(target, rainbowPallet, 5.0, -2.0, 1.0);
             break;
         }
         case PARTICLES:
         {
-            effectPtr = std::make_unique<PicoLed::Particles>(target, rainbowPallet);
+            PicoLed::Particles particlesEffect(target, rainbowPallet, 0.5, 1.5);
+
+            particlesEffect.addSource(16, 0.75, -0.3);
+            particlesEffect.addSource(17, 0.75, 0.3);
+
+            effectPtr = std::make_unique<PicoLed::Particles>(particlesEffect);
             break;
         }
         case STARS:
         {
-            effectPtr = std::make_unique<PicoLed::Stars>(target, baseColor, 1);
+            effectPtr = std::make_unique<PicoLed::Stars>(target, baseColor, 4.0);
             break;
         }
         default:
             break;
         }
-
-        effectPtr->animate();
+        
+        if (effectPtr->animate())
+        {
+            target.show();
+        }
     }
 }
